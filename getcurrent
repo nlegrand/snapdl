@@ -2,31 +2,89 @@
 
 use strict;
 use warnings;
-use Time::HiRes qw();
+use Time::HiRes;
 
-my $arch = `uname -m`;
-chomp($arch);
+my $hw = `uname -m`;
+chomp($hw);
 
-my $SHA256 = `lynx -source http://ftp.openbsd.org/pub/OpenBSD/snapshots/$arch/SHA256`;
+my $SHA256 = `lynx -source http://ftp.openbsd.org/pub/OpenBSD/snapshots/$hw/SHA256`;
+
+my $r; #r is for release
+
+if ( $SHA256 =~ /base([0-9]{2,2}).tgz/ ) {
+    $r = $1;
+} else {
+    print "No good SHA256 from http://ftp.OpenBSD.org. Aborting.\n";
+    exit(1);
+}
+my @sets = ( "bsd",
+	     "bsd.mp",
+	     "bsd.rd",
+	     "base$r.tgz",
+	     "comp$r.tgz",
+	     "etc$r.tgz",
+	     "game$r.tgz",
+	     "man$r.tgz",
+	     "misc$r.tgz",
+	     "xbase$r.tgz",
+	     "xetc$r.tgz",
+	     "xfont$r.tgz",
+	     "xserv$r.tgz",
+	     "xshare$r.tgz");
 
 my @ftp_html = split /\n/, `lynx -source http://www.openbsd.org/ftp.html`; 
 
 my @servers;
 
-my @syncedserver;
+my @synced_server;
 
 for (@ftp_html) {
-    if (/^\s+ftp:\/\/(.+)</ && (! /ftp\.OpenBSD\.org/)) {
+    if (/^\s+(http:\/\/.+)</ && (! /ftp\.OpenBSD\.org/)) {
 	push @servers, $1;
     }
 }
 
+my $best_time;
+
 for (@servers) {
-    my $url = "ftp://".$_."snapshots/".$arch."/SHA256";
-    my $mirrored_SHA256 = `lynx -source $url 2>/dev/null`;
+    my $url = "${_}snapshots/$hw/SHA256";
+    my $time_before_dl = Time::HiRes::gettimeofday();
+    my $mirrored_SHA256 = `lynx -source -connect_timeout 2 $url 2>/dev/null`;
+    my $time_after_dl = Time::HiRes::gettimeofday();
+    my $time_diff = $time_after_dl - $time_before_dl;
+    my $sync_message = " is synced";
+    print "$time_diff:";
     if ($SHA256 eq $mirrored_SHA256) {
-	print "$_ is synced\n";
-	push @syncedserver, $_;
+	if (! $best_time) {
+	    $best_time = $time_diff;
+	    print "$_ $sync_message \n" ;
+	    push @synced_server, $_;
+	} elsif ( $time_diff < $best_time ) {
+	    print "$_ $sync_message and seems to be faster\n";
+	    $best_time = $time_diff;
+	    unshift @synced_server, $_;
+	} else {
+	    print "$_ $sync_message but doesn't seem as fast as some others\n";
+	    push @synced_server, $_;
+	}
+    } else {
+	print "$_ is not synced\n";
     }
 }
 
+
+print "Allright, let's try to get sets from $synced_server[0]\n";
+
+for(@sets) {
+    print "getting $_...\n";
+    `ftp $synced_server[0]/snapshots/$hw/$_`;
+    print "done\n";
+#    print "checking $_\n";
+#    $SHA256 =~ /\($_\) = ([a-f0-9]+)/;
+#c'est là qu'il faut reprendre
+}
+
+open my $fh_SHA256, '>', 'SHA256';
+printf $fh_SHA256, $SHA256;
+
+`cksum -a sha256 -c SHA256`
