@@ -1,0 +1,32 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Time::HiRes qw();
+
+my $arch = `uname -m`;
+chomp($arch);
+
+my $SHA256 = `lynx -source http://ftp.openbsd.org/pub/OpenBSD/snapshots/$arch/SHA256`;
+
+my @ftp_html = split /\n/, `lynx -source http://www.openbsd.org/ftp.html`; 
+
+my @servers;
+
+my @syncedserver;
+
+for (@ftp_html) {
+    if (/^\s+ftp:\/\/(.+)</ && (! /ftp\.OpenBSD\.org/)) {
+	push @servers, $1;
+    }
+}
+
+for (@servers) {
+    my $url = "ftp://".$_."snapshots/".$arch."/SHA256";
+    my $mirrored_SHA256 = `lynx -source $url 2>/dev/null`;
+    if ($SHA256 eq $mirrored_SHA256) {
+	print "$_ is synced\n";
+	push @syncedserver, $_;
+    }
+}
+
