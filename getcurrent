@@ -76,16 +76,17 @@ for (@servers) {
 
 print "$server seemed to be the fastest, let's get the sets!\n";
 
-my $striped_SHA256 = "";
+my @striped_SHA256 ;
 
 for(@sets) {
 	print "getting $_...\n";
 	`ftp $server/pub/OpenBSD/snapshots/$hw/$_`;
-	$SHA256 =~ /(SHA256 \($_\) = [a-f0-9]+\n)/s;
-	$striped_SHA256 .= $1;
+	if ($SHA256 =~ /(SHA256 \($_\) = [a-f0-9]+\n)/s) {
+		unshift @striped_SHA256, $1;
+	}
 }
 
 open my $fh_SHA256, '>', 'SHA256';
-print $fh_SHA256, $striped_SHA256;
+print $fh_SHA256 @striped_SHA256;
 
 `cksum -a sha256 -c SHA256`
