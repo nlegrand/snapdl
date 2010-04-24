@@ -93,6 +93,51 @@ if ( $SHA256 =~ /base([0-9]{2,2}).tgz/ ) {
 }
 
 
+my @ftp_html = split /\n/, `curl -s http://www.openbsd.org/ftp.html`; 
+
+my @servers;
+
+my @synced_server;
+
+for (@ftp_html) {
+	if (/^\s+((http:)\/\/.+)</ && (! /ftp\.OpenBSD\.org/)) {
+		push @servers, $1;
+	}
+}
+
+my $server;
+my $best_time;
+my %synced_mirror; # { 'http://mirror.com' => $time }
+
+for my $candidat_server (@servers) {
+	my $url = "${candidat_server}snapshots/$hw/SHA256";
+	$candidat_server =~ s!pub/OpenBSD/!!;
+	my $time_before_dl = [gettimeofday];
+	my $mirrored_SHA256 = `curl -s -m 1 $url 2>/dev/null`;
+	my $time = tv_interval $time_before_dl;
+	if ($SHA256 eq $mirrored_SHA256) {
+		if ((! $best_time) or $time < $best_time) {
+			$best_time = $time;
+			$synced_mirror{$candidat_server} = $time ;
+			$server = $candidat_server;
+		} else {
+			$synced_mirror{$candidat_server} = $time;
+		}
+	}
+}
+
+MIRROR: {
+	print "Here is the list of synced Mirror, from the fastest to the slowest:\n";
+	my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
+	for (@sorted_mirrors) {
+		print "$_\n";
+	}
+	my $line = <STDIN>;
+}
+
+print "$server seemed to be the fastest, let's get the sets!\n";
+
+
 my @sets = ( { "INSTALL.$hw" => "checked" }, #name => status
 	     { "bsd" => "checked"  },
 	     { "bsd.mp" => "checked" },
@@ -139,42 +184,6 @@ SETS: {
 		redo SETS;
 	}
 }
-
-my @ftp_html = split /\n/, `curl -s http://www.openbsd.org/ftp.html`; 
-
-my @servers;
-
-my @synced_server;
-
-for (@ftp_html) {
-	if (/^\s+((http:)\/\/.+)</ && (! /ftp\.OpenBSD\.org/)) {
-		push @servers, $1;
-	}
-}
-
-my $server;
-my $best_time;
-my %synced_mirror; # { 'http://mirror.com' => $time }
-
-for my $candidat_server (@servers) {
-	my $url = "${candidat_server}snapshots/$hw/SHA256";
-	$candidat_server =~ s!pub/OpenBSD/!!;
-	my $time_before_dl = [gettimeofday];
-	my $mirrored_SHA256 = `curl -s -m 1 $url 2>/dev/null`;
-	my $time = tv_interval $time_before_dl;
-	if ($SHA256 eq $mirrored_SHA256) {
-		if ((! $best_time) or $time < $best_time) {
-			$best_time = $time;
-			$synced_mirror{$candidat_server} = $time ;
-			$server = $candidat_server;
-		} else {
-			$synced_mirror{$candidat_server} = $time;
-		}
-	}
-}
-
-
-print "$server seemed to be the fastest, let's get the sets!\n";
 
 my @striped_SHA256 ;
 
