@@ -186,16 +186,13 @@ for my $set_ref (@sets) {
 	for my $set (keys %{$set_ref}) {
 		if ($set_ref->{$set} eq "checked"
 		    && $SHA256 =~ /(SHA256 \($set\) = [a-f0-9]+\n)/s) {
-			push @checked_sets, $set;
+			push @checked_sets, "$server/pub/OpenBSD/snapshots/$hw/$set";
 				push @stripped_SHA256, $1;
 		}
 	}
 }
-my $set_list = join ",", @checked_sets;
-$set_list = "{$set_list}";
-print "ftp $server/pub/OpenBSD/snapshots/$hw/$set_list\n";
 if ($pretend eq "no") {
-	`ftp -m $server/pub/OpenBSD/snapshots/$hw/$set_list`;
+	system("ftp", @checked_sets);
 	open my $fh_SHA256, '>', 'SHA256';
 	print $fh_SHA256 @stripped_SHA256;
 	print "Checksum:\n" . `cksum -a sha256 -c SHA256` ;
