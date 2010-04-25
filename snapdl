@@ -131,21 +131,19 @@ MIRROR: {
 
 
 my $checked_set_pattern = "^INSTALL|^bsd|tgz\$";
-my @sets; # liste of {$set => $status} ; $set = "bsd" ; $status = "checked"
+my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
 
 for (split /\n/s, $SHA256) {
 	my $set = (/\((.*)\)/) ? $1 : die "Weird SHA256\n";
 	my $status = ($set =~ $checked_set_pattern) ? "checked" : "not checked";
-	push @sets, { $set => $status };
+	$sets{$set} = $status;
 }
 
 SETS: {
 	print "Sets available:\n";
-	for (@sets) {
-		for my $key (keys %{$_}) {
-			my $box = ($_->{$key} eq "checked") ? "[x]" : "[ ]";
-			print "$box $key\n";
-		}
+	for (sort keys %sets) {
+	    my $box = ($sets{$_} eq "checked") ? "[x]" : "[ ]";
+			print "$box $_\n";
 	}
 	printf "Set names? (or 'done') [done] ";
 	chomp(my $line = <STDIN>);
@@ -160,37 +158,35 @@ SETS: {
 		} else {
 			print "+re add sets with pattern re\n-re remove sets with pattern re\n";
 			redo SETS;
-
+			
 		}
-		for my $set_ref (@sets) {
-			for my $set (keys %{$set_ref}) {
-				if ($set =~ /$pattern/
-				    && $operation eq '-') {
-					$set_ref->{$set} = "not checked";
-				} elsif ($set =~ /$pattern/
-					 && $operation eq '+') {
-					$set_ref->{$set} = "checked";
-				}
+		for my $set (sort keys %sets) {
+			if ($set =~ /$pattern/
+			    && $operation eq '-') {
+				$sets{$set} = "not checked";
+			} elsif ($set =~ /$pattern/
+				 && $operation eq '+') {
+				$sets{$set} = "checked";
 			}
 		}
 		redo SETS;
 	}
 }
 
+
 print "OK let's get the sets from $server!\n";
 
 my @stripped_SHA256; #SHA256 stripped from undownloaded sets
 
 my @checked_sets;
-for my $set_ref (@sets) {
-	for my $set (keys %{$set_ref}) {
-		if ($set_ref->{$set} eq "checked"
+for my $set (sort keys %sets) {
+		if ($sets{$set} eq "checked"
 		    && $SHA256 =~ /(SHA256 \($set\) = [a-f0-9]+\n)/s) {
 			push @checked_sets, "$server/pub/OpenBSD/snapshots/$hw/$set";
 				push @stripped_SHA256, $1;
 		}
-	}
 }
+
 if ($pretend eq "no") {
 	system("ftp", @checked_sets);
 	open my $fh_SHA256, '>', 'SHA256';
