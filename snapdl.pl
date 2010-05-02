@@ -91,7 +91,7 @@ COUNTRY: {
         my $operation;
         my $pattern;
         if ($line eq "done" || $line eq "") {
-                print "Write the choosed countries in /slapdl/countries to check by default? [no] ";
+                print "Write the choosed countries in ~/slapdl/.countries to check them by default? [no] ";
 	        chomp($line = <STDIN>);
 	        if ($line =~ /y|yes/i) {
 		        open $fh_countries, '>', "$ENV{'HOME'}/.snapdl/countries"
