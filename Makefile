@@ -1,5 +1,5 @@
 all:
-	mandoc snapdl.1 > snapdl.cat1
+	nroff -man snapdl.1 > snapdl.cat1
 
 install: all
 	install -c -o root -g bin -m 555 ${.CURDIR}/snapdl.pl \

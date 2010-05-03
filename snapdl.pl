@@ -17,7 +17,6 @@
 
 use strict;
 use warnings;
-use File::Path qw(make_path);
 use Time::HiRes qw(gettimeofday tv_interval);
 
 if ($#ARGV >= 0) {
@@ -37,7 +36,7 @@ SETS: {
                 $sets_dir = $line;
         } 
         if (! -d $sets_dir) {
-                make_path($sets_dir) or print "$!\n";
+                `mkdir -p $sets_dir`;
         }
         (! -d $sets_dir ) ? redo SETS : chdir($sets_dir);
 }
