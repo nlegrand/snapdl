@@ -1,4 +1,4 @@
-VERSION=1.0
+VERSION=1.1
 
 all:
 	nroff -man snapdl.1 > snapdl.cat1
