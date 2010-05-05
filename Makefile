@@ -1,3 +1,5 @@
+VERSION=1.0
+
 all:
 	nroff -man snapdl.1 > snapdl.cat1
 
@@ -10,6 +12,10 @@ install: all
 uninstall:
 	rm /usr/local/bin/snapdl
 	rm /usr/local/man/cat1/snapdl.0
+
+archive:
+	(cd .. ; tar cvfz snapdl-${VERSION}.tar.gz `basename ${.CURDIR}`/snapdl.pl \
+	`basename ${.CURDIR}`/snapdl.cat1 `basename ${.CURDIR}`/Makefile)
 
 clean:
 	rm snapdl.cat1
