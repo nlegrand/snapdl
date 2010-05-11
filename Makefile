@@ -13,9 +13,10 @@ uninstall:
 	rm /usr/local/bin/snapdl
 	rm /usr/local/man/cat1/snapdl.0
 
-archive:
-	(cd .. ; tar cvfz snapdl-${VERSION}.tar.gz `basename ${.CURDIR}`/snapdl.pl \
-	`basename ${.CURDIR}`/snapdl.cat1 `basename ${.CURDIR}`/Makefile)
+archive: all
+	mkdir snapdl-${VERSION}
+	cp Makefile snapdl.pl snapdl.1 snapdl-${VERSION}
+	tar cfvz snapdl-${VERSION}.tar.gz snapdl-${VERSION}
 
 clean:
-	rm snapdl.cat1
+	rm -rf snapdl.cat1 snapdl-*
