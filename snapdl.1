@@ -1,4 +1,4 @@
-.Dd $Mdocdate: April 25 2010 $
+.Dd $Mdocdate: May 18 2010 $
 .Dt SNAPDL 1
 .Sh NAME
 .Nm snapdl
@@ -12,9 +12,22 @@ command helps you to find mirrors with snapshots synced with the main
 mirror
 .Pa http://ftp.OpenBSD.org
 and to download the sets you need in order to upgrade your system. It
-is interactive, the questions (path de download sets, which plateform,
-which sets, which mirror) try to be as straightforward as those from
-the OpenBSD install and upgrade scripts.
+is interactive, the questions (get a new copy of mirror file, which
+countries to download from, save countries list, which protocol, path
+de download sets, which plateform, which sets and finally which
+mirror) try to be as straightforward as those from the OpenBSD install
+and upgrade scripts.
+.Sh FILES
+.Bl -tag -width "~/.snapdl/mirrors.dat"
+.It ~/.snapdl/mirrors.dat
+mirrors.dat
+.Nm
+download from
+.Pa http://www.openbsd.org/build/mirrors.dat
+.It ~/.snapdl/countries
+file containing one country name per line that will be automatically
+checked by
+.Nm
 .Sh SEE ALSO
 .Pa http://www.openbsd.org/faq/current.html
 .Sh AUTHOR

@@ -23,6 +23,132 @@ if ($#ARGV >= 0) {
         print "usage: snapdl";
 }
 
+
+my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
+if (! -d $snapdl_dir) {
+	printf "Creating $ENV{'HOME'}/.snapdl\n";
+	mkdir "$ENV{'HOME'}/.snapdl" or die "can't mkdir $ENV{'HOME'}/.snapdl";
+}
+my $i_want_a_new_mirrors_dat;
+if (-e "$snapdl_dir/mirrors.dat") {
+	my $mtime = (stat("$snapdl_dir/mirrors.dat"))[9];
+	my $mod_date = localtime $mtime;
+	print "You got your mirror list since $mod_date\n";
+	print "Do you want a new one? [no] ";
+	chomp($i_want_a_new_mirrors_dat = <STDIN>);
+} 
+if (! -e "$snapdl_dir/mirrors.dat" || $i_want_a_new_mirrors_dat =~ /y|yes/i) {
+	chdir($snapdl_dir);
+	system("ftp", "http://www.openbsd.org/build/mirrors.dat");
+}
+
+open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open $ENV{'HOME'}/.snapdl/mirrors.dat";
+
+my %mirrors;
+my $current_country;
+# autovivify %mirror :
+# $mirror{'Country'} = {
+#         ["not checked", [qw(ftp://blala.com http://blili.org)]],
+# }
+while (<$mirrors_dat>) {
+	chomp;
+	if (/^GC\s+([a-zA-Z ]+)/) {
+		$current_country = $1;
+		if (! defined($mirrors{$current_country}->[0])) {
+			$mirrors{$current_country}->[0] = "not checked";
+		}
+		
+	} elsif (/(?:^UF|^UH)\s+([a-zA-Z0-9\.:\/-]+)/
+	    && ! ($1 =~ m!ftp.OpenBSD.org/pub/OpenBSD/!)) {
+		push @{ $mirrors{$current_country}->[1] }, $1;
+	}
+}
+
+close $mirrors_dat;
+
+my $fh_countries;
+if (-e "$snapdl_dir/countries") {
+	open $fh_countries, '<', "$ENV{'HOME'}/.snapdl/countries" or die "can't open $ENV{'HOME'}/.snapdl/countries";
+	while (my $country = <$fh_countries>) {
+		chomp($country);
+		if (defined($mirrors{$country})) {
+			$mirrors{$country}->[0] = "checked";
+		}
+	}
+	close $fh_countries;
+}
+
+COUNTRY: {
+        print "Wich countries you want to download from?:\n";
+	my @countries;
+        for (sort keys %mirrors) {
+		my $box = ($mirrors{$_}->[0] eq "checked") ? "[x]" : "[ ]";
+		push @countries, "$box $_";
+        }
+	format_check(\@countries);
+        printf "Countries name? (or 'done') [done] ";
+        chomp(my $line = <STDIN>);
+        my $operation;
+        my $pattern;
+        if ($line eq "done" || $line eq "") {
+                print "Write the choosed countries in /slapdl/countries to check by default? [no] ";
+	        chomp($line = <STDIN>);
+	        if ($line =~ /y|yes/i) {
+		        open $fh_countries, '>', "$ENV{'HOME'}/.snapdl/countries"
+                            or die "can't open $ENV{'HOME'}/.snapdl/countries";
+		        for (keys %mirrors) {
+			        if ($mirrors{$_}->[0] eq "checked") {
+                                        printf $fh_countries "$_\n";
+                                }
+		        }
+                close $fh_countries;
+	        }
+                last COUNTRY;
+        } else {
+                if ($line =~ /(\+|-)(.+)/) {
+                        $operation = $1;
+                        $pattern = $2;
+                } else {
+                        print "+re add countries with pattern re\n-re remove countries with pattern re\n";
+                        redo COUNTRY;
+                        
+                }
+                for my $country (sort keys %mirrors) {
+                        if ($country =~ /$pattern/
+                            && $operation eq '-') {
+                                $mirrors{$country}->[0] = "not checked";
+                        } elsif ($country =~ /$pattern/
+                                 && $operation eq '+') {
+                                $mirrors{$country}->[0] = "checked";
+                        }
+                }
+                redo COUNTRY;
+        }
+}
+
+my @mirrors;
+PROTOCOL: {
+        printf "Protocols? ('ftp', 'http' or 'both') [http] ";
+        chomp(my $line = <STDIN>);
+        my $proto_pattern;
+        if ($line =~ /^$|http/) {
+                $proto_pattern = "^http";
+        } elsif ($line =~ /ftp/) {
+                $proto_pattern = "^ftp";
+        } else {
+                $proto_pattern = "^ftp|^http";
+        }
+        for (keys %mirrors) {
+                if ($mirrors{$_}->[0] eq "checked") {
+                        for (@{ $mirrors{$_}->[1] }) {
+                                if (/$proto_pattern/) {
+                                        push @mirrors, $_;
+                                } 
+                        }
+                }   
+        }
+}
+
 my $sets_dir; #path where to download sets
 my $pretend = "no";
 SETS: {
@@ -40,7 +166,6 @@ SETS: {
         }
         (! -d $sets_dir ) ? redo SETS : chdir($sets_dir);
 }
-
 
 my @platforms = ( "alpha",
                   "amd64",
@@ -90,17 +215,10 @@ if ( $SHA256 =~ /base([0-9]{2,2}).tgz/ ) {
         die "No good SHA256 from http://ftp.OpenBSD.org. Aborting.\n";
 }
 
-print "Getting ftp list from official Web site\n";
-my @ftp_html = split /\n/, `ftp -o - http://www.openbsd.org/ftp.html`; 
-my @mirrors;
-for (@ftp_html) {
-        if (/^\s+(http:\/\/.+)</ && (! /ftp\.OpenBSD\.org/)) {
-                push @mirrors, $1;
-        }
-}
+
 
 my %synced_mirror; # { 'http://mirror.com' => $time }
-print "Let's locate mirrors synced with ftp.OpenBSD.org (this may take some time)... ";
+print "Let's locate mirrors synced with ftp.OpenBSD.org... ";
 for my $candidat_server (@mirrors) {
         my $url = "${candidat_server}snapshots/$hw/SHA256";
         $candidat_server =~ s!/pub/OpenBSD/!!;
@@ -161,10 +279,12 @@ for (split /\n/s, $SHA256) {
 
 SETS: {
         print "Sets available:\n";
+	my @sets;
         for (sort keys %sets) {
-            my $box = ($sets{$_} eq "checked") ? "[x]" : "[ ]";
-                        print "$box $_\n";
+		my $box = ($sets{$_} eq "checked") ? "[x]" : "[ ]";
+		push @sets, "$box $_";
         }
+	format_check(\@sets);
         printf "Set names? (or 'done') [done] ";
         chomp(my $line = <STDIN>);
         my $operation;
@@ -213,4 +333,21 @@ if ($pretend eq "no") {
         open my $fh_SHA256, '>', 'SHA256';
         print $fh_SHA256 @stripped_SHA256;
         print "Checksum:\n" . `cksum -a sha256 -c SHA256` ;
+}
+
+sub format_check { # format_check(\@list)
+
+	my $list_ref = shift @_;
+	my $col_size = ($#{$list_ref} % 4 == 0) ? $#{$list_ref} / 4 : $#{$list_ref} / 4 + 1 ;
+	my $one; my $two; my $three;
+	for (my $i = 0; $i <= $col_size; $i++) {
+		printf "%-20s",$list_ref->[$i];
+		printf "%-20s",$list_ref->[$i + $col_size ] 
+		    if (defined($list_ref->[$i + $col_size ])); 
+		printf "%-20s",$list_ref->[$i + $col_size * 2]
+		    if (defined($list_ref->[$i + $col_size * 2]));
+		printf "%-20s",$list_ref->[$i + $col_size * 3]
+		    if (defined($list_ref->[$i + $col_size * 3]));
+		print "\n";
+	}
 }
