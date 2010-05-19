@@ -47,9 +47,9 @@ open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open
 my %mirrors;
 my $current_country;
 # autovivify %mirror :
-# $mirror{'Country'} = {
+# $mirror{'Country'} = [
 #         ["not checked", [qw(ftp://blala.com http://blili.org)]],
-# }
+# ]
 while (<$mirrors_dat>) {
 	chomp;
 	if (/^GC\s+([a-zA-Z ]+)/) {
@@ -91,7 +91,7 @@ COUNTRY: {
         my $operation;
         my $pattern;
         if ($line eq "done" || $line eq "") {
-                print "Write the choosed countries in ~/slapdl/.countries to check them by default? [no] ";
+                print "Write the choosed countries in ~/.slapdl/countries to check them by default? [no] ";
 	        chomp($line = <STDIN>);
 	        if ($line =~ /y|yes/i) {
 		        open $fh_countries, '>', "$ENV{'HOME'}/.snapdl/countries"
@@ -318,15 +318,20 @@ print "OK let's get the sets from $server!\n";
 
 my @stripped_SHA256; #SHA256 stripped from undownloaded sets
 
-my @checked_sets;
+if ($pretend = "yes") {
+        print "Pretending:\n";
+}
+
 for my $set (sort keys %sets) {
-                if ($sets{$set} eq "checked"
-                    && $SHA256 =~ /(SHA256 \($set\) = [a-f0-9]+\n)/s) {
-                        if ($pretend eq "no") {
-                                system("ftp", "-r 1", "$server/pub/OpenBSD/snapshots/$hw/$set");
-                                push @stripped_SHA256, $1;
-                        }
+        if ($sets{$set} eq "checked"
+            && $SHA256 =~ /(SHA256 \($set\) = [a-f0-9]+\n)/s) {
+                if ($pretend eq "no") {
+                        system("ftp", "-r 1", "$server/pub/OpenBSD/snapshots/$hw/$set");
+                        push @stripped_SHA256, $1;
+                } else {
+                        print "ftp -r 1 $server/pub/OpenBSD/snapshots/$hw/$set\n";
                 }
+        }
 }
 
 if ($pretend eq "no") {
@@ -339,7 +344,6 @@ sub format_check { # format_check(\@list)
 
 	my $list_ref = shift @_;
 	my $col_size = ($#{$list_ref} % 4 == 0) ? $#{$list_ref} / 4 : $#{$list_ref} / 4 + 1 ;
-	my $one; my $two; my $three;
 	for (my $i = 0; $i <= $col_size; $i++) {
 		printf "%-20s",$list_ref->[$i];
 		printf "%-20s",$list_ref->[$i + $col_size ] 
