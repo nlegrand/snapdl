@@ -47,9 +47,7 @@ open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open
 my %mirrors;
 my $current_country;
 # autovivify %mirror :
-# $mirror{'Country'} = [
-#         ["not checked", [qw(ftp://blala.com http://blili.org)]],
-# ]
+# $mirror{'Country'} = ["not checked", [qw(ftp://blala.com http://blili.org)]]
 while (<$mirrors_dat>) {
 	chomp;
 	if (/^GC\s+([a-zA-Z ]+)/) {
