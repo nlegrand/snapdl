@@ -77,7 +77,7 @@ if (-e "$snapdl_dir/countries") {
 }
 
 COUNTRY: {
-        print "Wich countries you want to download from?:\n";
+        print "Which countries you want to download from?:\n";
 	my @countries;
         for (sort keys %mirrors) {
 		my $box = ($mirrors{$_}->[0] eq "checked") ? "[x]" : "[ ]";
@@ -89,7 +89,7 @@ COUNTRY: {
         my $operation;
         my $pattern;
         if ($line eq "done" || $line eq "") {
-                print "Write the choosed countries in ~/.snapdl/countries to check them by default? [no] ";
+                print "Write the chosen countries in ~/.snapdl/countries to check them by default? [no] ";
 	        chomp($line = <STDIN>);
 	        if ($line =~ /y|yes/i) {
 		        open $fh_countries, '>', "$ENV{'HOME'}/.snapdl/countries"
