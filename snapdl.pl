@@ -19,8 +19,9 @@ use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday tv_interval);
 
-if ($#ARGV >= 0) {
-        print "usage: snapdl";
+if ($#ARGV > -1) {
+        print "usage: snapdl\n";
+	exit 1;
 }
 
 
