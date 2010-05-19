@@ -316,7 +316,7 @@ print "OK let's get the sets from $server!\n";
 
 my @stripped_SHA256; #SHA256 stripped from undownloaded sets
 
-if ($pretend = "yes") {
+if ($pretend eq "yes") {
         print "Pretending:\n";
 }
 
