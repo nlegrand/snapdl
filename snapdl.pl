@@ -342,7 +342,7 @@ if ($pretend eq "no") {
 sub format_check { # format_check(\@list)
 
 	my $list_ref = shift @_;
-	my $col_size = ($#{$list_ref} % 4 == 0) ? $#{$list_ref} / 4 : $#{$list_ref} / 4 + 1 ;
+	my $col_size = ($#{$list_ref} % 4 == 0) ? $#{$list_ref} / 4 -1 : $#{$list_ref} / 4 ;
 	for (my $i = 0; $i <= $col_size; $i++) {
 		printf "%-20s",$list_ref->[$i];
 		printf "%-20s",$list_ref->[$i + $col_size ] 
