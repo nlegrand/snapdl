@@ -47,8 +47,8 @@ open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open
 
 my %mirrors;
 my $current_country;
-# autovivify %mirror :
-# $mirror{'Country'} = ["not checked", [qw(ftp://blala.com http://blili.org)]]
+# autovivify %mirrors :
+# $mirrors{'Country'} = ["not checked", [qw(ftp://blala.com http://blili.org)]]
 while (<$mirrors_dat>) {
 	chomp;
 	if (/^GC\s+([a-zA-Z ]+)/) {
@@ -220,7 +220,6 @@ my %synced_mirror; # { 'http://mirror.com' => $time }
 print "Let's locate mirrors synced with ftp.OpenBSD.org... ";
 for my $candidat_server (@mirrors) {
         my $url = "${candidat_server}snapshots/$hw/SHA256";
-        $candidat_server =~ s!/pub/OpenBSD/!!;
         my $time_before_dl = [gettimeofday];
         my $mirrored_SHA256;
         eval {
@@ -325,10 +324,10 @@ for my $set (sort keys %sets) {
         if ($sets{$set} eq "checked"
             && $SHA256 =~ /(SHA256 \($set\) = [a-f0-9]+\n)/s) {
                 if ($pretend eq "no") {
-                        system("ftp", "-r 1", "$server/pub/OpenBSD/snapshots/$hw/$set");
+                        system("ftp", "-r 1", "$server/snapshots/$hw/$set");
                         push @stripped_SHA256, $1;
                 } else {
-                        print "ftp -r 1 $server/pub/OpenBSD/snapshots/$hw/$set\n";
+                        print "ftp -r 1 $server/snapshots/$hw/$set\n";
                 }
         }
 }
@@ -338,6 +337,7 @@ if ($pretend eq "no") {
         print $fh_SHA256 @stripped_SHA256;
         print "Checksum:\n" . `cksum -a sha256 -c SHA256` ;
 }
+
 
 sub format_check { # format_check(\@list)
 
