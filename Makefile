@@ -1,4 +1,4 @@
-VERSION=1.2.1
+VERSION=1.2.2
 
 all:
 	mandoc snapdl.1 > snapdl.cat1
