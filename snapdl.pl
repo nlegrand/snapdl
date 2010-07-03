@@ -40,7 +40,7 @@ if (-e "$snapdl_dir/mirrors.dat") {
 } 
 if (! -e "$snapdl_dir/mirrors.dat" || $i_want_a_new_mirrors_dat =~ /y|yes/i) {
 	chdir($snapdl_dir);
-	system("ftp", "http://www.openbsd.org/build/mirrors.dat");
+	system("ftp", "http://www.OpenBSD.org/build/mirrors.dat");
 }
 
 open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open $ENV{'HOME'}/.snapdl/mirrors.dat";
@@ -85,7 +85,7 @@ COUNTRY: {
 		push @countries, "$box $_";
         }
 	format_check(\@countries);
-        printf "Countries name? (or 'done') [done] ";
+        printf "Countries names? (or 'done') [done] ";
         chomp(my $line = <STDIN>);
         my $operation;
         my $pattern;
@@ -190,7 +190,7 @@ HW: {
         printf "Platform? (or 'list') [$hw] ";
         chomp(my $line = <STDIN>);
         if ($line eq 'list') {
-                print "Avaible Platforms:\n";
+                print "Available platforms:\n";
                 for (@platforms) {
                         print "    $_\n";
                 }
@@ -200,7 +200,7 @@ HW: {
                         $hw = $line;
                         last HW;
                 } else {
-                        printf "bad hardware platform name\n";
+                        printf "Bad hardware platform name\n";
                         redo HW;
                 }
         }
@@ -212,7 +212,7 @@ my $SHA256 = `ftp -o - http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$hw/SHA256`;
 if ( $SHA256 =~ /base([0-9]{2,2}).tgz/ ) {
         my $r = $1;
 } else {
-        die "No good SHA256 from http://ftp.OpenBSD.org. Aborting.\n";
+        die "No good SHA256 from http://ftp.OpenBSD.org/. Aborting.\n";
 }
 
 
@@ -334,11 +334,15 @@ for my $set (sort keys %sets) {
 }
 
 if ($pretend eq "no") {
-        open my $fh_SHA256, '>', 'SHA256';
+        open my $fh_SHA256, '>', 'SHA256' or die $!;
         print $fh_SHA256 @stripped_SHA256;
         print "Checksum:\n";
-        system("cksum", "-a sha256 -c SHA256") ;
+        system("cksum", "-a sha256", "-c", "SHA256") ;
         die "Bad checksum" if ($? != 0);
+        my $str_index_txt = `ls -l`;
+        open my $index_txt, '>', 'index.txt' or die $!;
+        print $str_index_txt;
+        print $index_txt $str_index_txt;
 }
 
 
