@@ -1,7 +1,7 @@
 VERSION=1.2.1
 
 all:
-	nroff -man snapdl.1 > snapdl.cat1
+	mandoc snapdl.1 > snapdl.cat1
 
 archive: all
 	mkdir snapdl-${VERSION}
