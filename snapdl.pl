@@ -161,7 +161,8 @@ SETS: {
                 $sets_dir = $line;
         } 
         if (! -d $sets_dir) {
-                `mkdir -p $sets_dir`;
+                system("mkdir", "-p", $sets_dir);
+                die "Can't mkdir -p $sets_dir" if ($? != 0);
         }
         (! -d $sets_dir ) ? redo SETS : chdir($sets_dir);
 }
@@ -217,7 +218,7 @@ if ( $SHA256 =~ /base([0-9]{2,2}).tgz/ ) {
 
 
 my %synced_mirror; # { 'http://mirror.com' => $time }
-print "Let's locate mirrors synced with ftp.OpenBSD.org... ";
+print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
 for my $candidat_server (@mirrors) {
         my $url = "${candidat_server}snapshots/$hw/SHA256";
         my $time_before_dl = [gettimeofday];
@@ -242,13 +243,13 @@ print "Done\n";
 
 my $server;
 my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
-die "No mirror found" if $#sorted_mirrors == -1;
+die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1;
 
 MIRROR: {
         print "Mirror? (or 'list') [$sorted_mirrors[0]] ";
         chomp(my $line = <STDIN>);
         if ($line eq "list") {
-                print "Synced mirrors from fastest to slowest:\n";
+                print "Synchronised mirrors from fastest to slowest:\n";
                 for (@sorted_mirrors) {
                         print "    $_\n";
                 }
@@ -335,22 +336,22 @@ for my $set (sort keys %sets) {
 if ($pretend eq "no") {
         open my $fh_SHA256, '>', 'SHA256';
         print $fh_SHA256 @stripped_SHA256;
-        print "Checksum:\n" . `cksum -a sha256 -c SHA256` ;
+        print "Checksum:\n";
+        system("cksum", "-a sha256 -c SHA256") ;
+        die "Bad checksum" if ($? != 0);
 }
 
 
 sub format_check { # format_check(\@list)
 
 	my $list_ref = shift @_;
-	my $col_size = ($#{$list_ref} % 4 == 0) ? $#{$list_ref} / 4 -1 : $#{$list_ref} / 4 ;
+	my $col_size = ($#{$list_ref} % 4 == 0) ? $#{$list_ref} / 4 -1 : $#{$list_ref} / 4;
 	for (my $i = 0; $i <= $col_size; $i++) {
 		printf "%-20s",$list_ref->[$i];
-		printf "%-20s",$list_ref->[$i + $col_size ] 
-		    if (defined($list_ref->[$i + $col_size ])); 
-		printf "%-20s",$list_ref->[$i + $col_size * 2]
-		    if (defined($list_ref->[$i + $col_size * 2]));
-		printf "%-20s",$list_ref->[$i + $col_size * 3]
-		    if (defined($list_ref->[$i + $col_size * 3]));
-		print "\n";
+		for (my $j = 1; $j <= 3; $j++) {
+		    printf "%-20s",$list_ref->[$i + $col_size * $j + $j] 
+			if (defined($list_ref->[$i + $col_size * $j + $j]));
+		}
+	        print "\n";
 	}
 }
