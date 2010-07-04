@@ -349,12 +349,12 @@ if ($pretend eq "no") {
 sub format_check { # format_check(\@list)
 
 	my $list_ref = shift @_;
-	my $col_size = ($#{$list_ref} % 4 == 0) ? $#{$list_ref} / 4 -1 : $#{$list_ref} / 4;
+ 	my $col_size = int($#{$list_ref} / 4);
 	for (my $i = 0; $i <= $col_size; $i++) {
 		printf "%-20s",$list_ref->[$i];
 		for (my $j = 1; $j <= 3; $j++) {
-		    printf "%-20s",$list_ref->[$i + $col_size * $j + $j] 
-			if (defined($list_ref->[$i + $col_size * $j + $j]));
+		    printf "%-20s",$list_ref->[$i + ($col_size + 1) * $j]
+			if (defined($list_ref->[$i + ($col_size + 1) * $j]));
 		}
 	        print "\n";
 	}
