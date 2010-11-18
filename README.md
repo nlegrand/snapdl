@@ -23,7 +23,7 @@ information.
 Or you can use it by cloning it from Github:
 
 <code>
-$ git clone git://github.com/nlegrand/snapdl.git
+$ git clone git@github.com:nlegrand/snapdl.git
 </code>
 
 Usage
