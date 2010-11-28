@@ -19,3 +19,6 @@ install: all
 
 deinstall:
 	rm /usr/local/bin/snapdl /usr/local/man/cat1/snapdl.0
+
+test:
+	perl test.pl
