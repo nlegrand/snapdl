@@ -16,26 +16,12 @@
 
 use strict;
 use warnings;
-use Digest::SHA;
 
 sub dl {
     my $command = shift @_;
     sub {
 	system($command, "-o", @_);
     };
-}
-
-sub cmp_files {
-    my ($f1, $f2) = @_;
-    (sha256_file($f1) eq sha256_file($f2));
-}
-
-sub sha256_file {
-    my $file_name = shift @_;
-    print $file_name;
-    my $sha = Digest::SHA->new(256);
-    $sha->addfile($file_name);
-    $sha->hexdigest;
 }
 
 1;
