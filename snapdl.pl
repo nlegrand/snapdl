@@ -183,44 +183,55 @@ sub sets_destination
 
 &sets_destination();
 
-my @platforms = ( "alpha",
-                  "amd64",
-                  "armish",
-                  "hp300",
-                  "hppa",
-                  "i386",
-                  "landisk",
-                  "loongson",
-                  "macppc",
-                  "mvme68k",
-                  "mvme88k",
-                  "sgi",
-                  "socppc",
-                  "sparc",
-                  "sparc64",
-                  "vax",
-                  "zaurus" );
-my $hw;
-HW: {
-        chomp($hw = `uname -m`);
-        printf "Platform? (or 'list') [$hw] ";
-        chomp(my $line = <STDIN>);
-        if ($line eq 'list') {
-                print "Available platforms:\n";
-                for (@platforms) {
-                        print "    $_\n";
-                }
-                redo HW;
-        } elsif ($line) {
-                if ((grep {/$line/} @platforms) == 1) {
-                        $hw = $line;
-                        last HW;
-                } else {
-                        printf "Bad hardware platform name\n";
-                        redo HW;
-                }
-        }
+chomp (my $hw = `uname -m`);
+
+sub hw_platform
+{
+	my @platforms = ( "alpha",
+			  "amd64",
+			  "armish",
+			  "hp300",
+			  "hppa",
+			  "i386",
+			  "landisk",
+			  "loongson",
+			  "macppc",
+			  "mvme68k",
+			  "mvme88k",
+			  "sgi",
+			  "socppc",
+			  "sparc",
+			  "sparc64",
+			  "vax",
+			  "zaurus" );
+
+	while (1) {
+		chomp($hw = `uname -m`);
+		printf "Platform? (or 'list') [$hw] ";
+		chomp(my $line = <STDIN>);
+		if ($line eq 'list') {
+			print "Available platforms:\n";
+			for (@platforms) {
+				print "    $_\n";
+			}
+			next;
+		} elsif ($line) {
+			if ((grep {/^$line$/} @platforms) == 1) {
+				$hw = $line;
+				last;
+			} else {
+				printf "Bad hardware platform name\n";
+				next;
+			}
+		} else {
+			if ((grep {/^$hw$/} @platforms) == 1) {
+				last;
+			}
+		}
+	}
 }
+
+&hw_platform();
 
 print "Getting SHA256 from main mirror\n";
 my $SHA256 = `ftp -o - http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$hw/SHA256`;
@@ -257,31 +268,36 @@ for my $candidat_server (@mirrors) {
 }
 print "Done\n";
 
-my $server;
 my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
 die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1;
 
-MIRROR: {
-        print "Mirror? (or 'list') [$sorted_mirrors[0]] ";
-        chomp(my $line = <STDIN>);
-        if ($line eq "list") {
-                print "Synchronised mirrors from fastest to slowest:\n";
-                for (@sorted_mirrors) {
-                        print "    $_\n";
-                }
-                redo MIRROR;
-        } elsif ($line eq "") {
-                $server = $sorted_mirrors[0];
-                last MIRROR;
-        } elsif ((grep {/^$line$/} @sorted_mirrors) == 1) {
-                $server = $line;
-                last MIRROR;
-        } else {
-                print "Bad mirror string '$line'\n";
-                redo MIRROR;
-        }
+my $server = $sorted_mirrors[0];
+
+#choose your mirror
+sub mirror {
+	while (1) {
+		print "Mirror? (or 'list') [$sorted_mirrors[0]] ";
+		chomp(my $line = <STDIN>);
+		if ($line eq "list") {
+			print "Synchronised mirrors from fastest to slowest:\n";
+			for (@sorted_mirrors) {
+				print "    $_\n";
+			}
+			next;
+		} elsif ($line eq "") {
+			$server = $sorted_mirrors[0];
+			last;
+		} elsif ((grep {/^$line$/} @sorted_mirrors) == 1) {
+			$server = $line;
+			last;
+		} else {
+			print "Bad mirror string '$line'\n";
+			next;
+		}
+	}
 }
 
+&mirror();
 
 my $checked_set_pattern = "^INSTALL|^bsd|tgz\$";
 my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
@@ -292,41 +308,47 @@ for (split /\n/s, $SHA256) {
         $sets{$set} = $status;
 }
 
-SETS: {
-        print "Sets available:\n";
-	my @sets;
-        for (sort keys %sets) {
-		my $box = ($sets{$_} eq "checked") ? "[x]" : "[ ]";
-		push @sets, "$box $_";
-        }
-	format_check(\@sets);
-        printf "Set names? (or 'done') [done] ";
-        chomp(my $line = <STDIN>);
-        my $operation;
-        my $pattern;
-        if ($line eq "done" or $line eq "") {
-                last SETS;
-        } else {
-                if ($line =~ /(\+|-)(.+)/) {
-                        $operation = $1;
-                        $pattern = $2;
-                } else {
-                        print "+re add sets with pattern re\n-re remove sets with pattern re\n";
-                        redo SETS;
-                        
-                }
-                for my $set (sort keys %sets) {
-                        if ($set =~ /$pattern/
-                            && $operation eq '-') {
-                                $sets{$set} = "not checked";
-                        } elsif ($set =~ /$pattern/
-                                 && $operation eq '+') {
-                                $sets{$set} = "checked";
-                        }
-                }
-                redo SETS;
+my @sets;
+
+sub sets_to_download
+{
+	while (1) {
+		@sets = ();
+		print "Sets available:\n";
+		for (sort keys %sets) {
+			my $box = ($sets{$_} eq "checked") ? "[x]" : "[ ]";
+			push @sets, "$box $_";
+		}
+		format_check(\@sets);
+		printf "Set names? (or 'done') [done] ";
+		chomp(my $line = <STDIN>);
+		my $operation;
+		my $pattern;
+		if ($line eq "done" or $line eq "") {
+			last;
+		} else {
+			if ($line =~ /(\+|-)(.+)/) {
+				$operation = $1;
+				$pattern = $2;
+			} else {
+				print "+re add sets with pattern re\n-re remove sets with pattern re\n";
+				next;
+			}
+			for my $set (sort keys %sets) {
+				if ($set =~ /$pattern/
+				    && $operation eq '-') {
+					$sets{$set} = "not checked";
+				} elsif ($set =~ /$pattern/
+					 && $operation eq '+') {
+					$sets{$set} = "checked";
+				}
+			}
+			next;
+		}
         }
 }
+
+&sets_to_download();
 
 
 print "OK let's get the sets from $server!\n";
