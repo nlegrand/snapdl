@@ -77,41 +77,43 @@ if (-e "$snapdl_dir/countries") {
 	close $fh_countries;
 }
 
-COUNTRY: {
-        print "Which countries you want to download from?:\n";
-	my @countries;
-        for (sort keys %mirrors) {
-		my $box = ($mirrors{$_}->[0] eq "checked") ? "[x]" : "[ ]";
-		push @countries, "$box $_";
-        }
-	format_check(\@countries);
-        printf "Countries names? (or 'done') [done] ";
-        chomp(my $line = <STDIN>);
-        my $operation;
-        my $pattern;
-        if ($line eq "done" || $line eq "") {
-                print "Write the chosen countries in ~/.snapdl/countries to check them by default? [no] ";
-	        chomp($line = <STDIN>);
-	        if ($line =~ /y|yes/i) {
-		        open $fh_countries, '>', "$ENV{'HOME'}/.snapdl/countries"
-                            or die "can't open $ENV{'HOME'}/.snapdl/countries";
-		        for (keys %mirrors) {
-			        if ($mirrors{$_}->[0] eq "checked") {
-                                        printf $fh_countries "$_\n";
-                                }
-		        }
-                close $fh_countries;
-	        }
-                last COUNTRY;
-        } else {
-                if ($line =~ /(\+|-)(.+)/) {
-                        $operation = $1;
-                        $pattern = $2;
-                } else {
-                        print "+re add countries with pattern re\n-re remove countries with pattern re\n";
-                        redo COUNTRY;
-                        
-                }
+sub country
+{
+	while (1) {
+		print "Which countries you want to download from?:\n";
+		my @countries;
+		for (sort keys %mirrors) {
+			my $box = ($mirrors{$_}->[0] eq "checked") ? "[x]" : "[ ]";
+			push @countries, "$box $_";
+		}
+		format_check(\@countries);
+		printf "Countries names? (or 'done') [done] ";
+		chomp(my $line = <STDIN>);
+		my $operation;
+		my $pattern;
+		if ($line eq "done" || $line eq "") {
+			print "Write the chosen countries in ~/.snapdl/countries to check them by default? [no] ";
+			chomp($line = <STDIN>);
+			if ($line =~ /y|yes/i) {
+				open $fh_countries, '>', "$ENV{'HOME'}/.snapdl/countries"
+				  or die "can't open $ENV{'HOME'}/.snapdl/countries";
+				for (keys %mirrors) {
+					if ($mirrors{$_}->[0] eq "checked") {
+						printf $fh_countries "$_\n";
+					}
+				}
+				close $fh_countries;
+			}
+			last;
+		} else {
+			if ($line =~ /(\+|-)(.+)/) {
+				$operation = $1;
+				$pattern = $2;
+			} else {
+				print "+re add countries with pattern re\n-re remove countries with pattern re\n";
+				next;
+			}
+		}		
                 for my $country (sort keys %mirrors) {
                         if ($country =~ /$pattern/
                             && $operation eq '-') {
@@ -121,9 +123,11 @@ COUNTRY: {
                                 $mirrors{$country}->[0] = "checked";
                         }
                 }
-                redo COUNTRY;
+                next;
         }
 }
+
+&country();
 
 my @mirrors;
 PROTOCOL: {
