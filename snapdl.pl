@@ -18,6 +18,9 @@
 use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday tv_interval);
+use File::Temp qw(tempfile);
+use File::Compare;
+use File::Copy;
 
 if ($#ARGV > -1) {
         print "usage: snapdl\n";
@@ -56,7 +59,6 @@ while (<$mirrors_dat>) {
 		if (! defined($mirrors{$current_country}->[0])) {
 			$mirrors{$current_country}->[0] = "not checked";
 		}
-		
 	} elsif (/(?:^UF|^UH)\s+([a-zA-Z0-9\.:\/-]+)/
 	    && ! ($1 =~ m!ftp.OpenBSD.org/pub/OpenBSD/!)) {
 		push @{ $mirrors{$current_country}->[1] }, $1;
@@ -94,37 +96,51 @@ chomp (my $hw = `uname -m`);
 
 &hw_platform();
 
-print "Getting SHA256 from main mirror\n";
-my $SHA256 = `ftp -o - http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$hw/SHA256`;
+my( $fh_new_sha256, $new_sha256) = tempfile;
 
-if ( $SHA256 =~ /base([0-9]{2,2}).tgz/ ) {
-        my $r = $1;
-} else {
-        die "No good SHA256 from http://ftp.OpenBSD.org/. Aborting.\n";
+print "Getting SHA256 from main mirror\n";
+`ftp -o $new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$hw/SHA256`;
+
+my @SHA256;
+
+while (<$fh_new_sha256>) {
+	if (/^SHA256 \(base([0-9]{2,2}).tgz\) = [0-9a-zA-Z]+$/) {
+		my $r = $1;
+	} elsif (! /^SHA256 \([a-zA-Z0-9.]+\) = [0-9a-zA-Z]+$/) {
+		die "No good SHA256 from http://ftp.OpenBSD.org/. Aborting.\n";
+	}
+	push @SHA256, $_;
 }
 
+if (compare($new_sha256, "SHA256.orig") == 0) {
+	die "You already have the last sets\n";
+}
 
+copy($new_sha256, "SHA256.orig") if ($pretend eq "no");
+close($fh_new_sha256);
 
 my %synced_mirror; # { 'http://mirror.com' => $time }
 print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
 for my $candidat_server (@mirrors) {
         my $url = "${candidat_server}snapshots/$hw/SHA256";
         my $time_before_dl = [gettimeofday];
-        my $mirrored_SHA256;
+        my ($fh_mirrored_sha256, $mirrored_sha256) = tempfile();
         eval {
                 local $SIG{ALRM} = sub {die "timeout\n"};
                 alarm 1;
-                $mirrored_SHA256 = `ftp -o - $url 2>/dev/null`;
+                `ftp -o $mirrored_sha256 $url 2>/dev/null`;
                 alarm 0;
         };
         if ($@) {
                 die unless $@ eq "timeout\n";
+		close $fh_mirrored_sha256;
                 next;
         } else {
                 my $time = tv_interval $time_before_dl;
-                if ($SHA256 eq $mirrored_SHA256) {
+                if (compare("SHA256.orig", $mirrored_sha256) == 0) {
                         $synced_mirror{$candidat_server} = $time;
                 }
+		close $fh_mirrored_sha256;
         }
 }
 print "Done\n";
@@ -140,7 +156,7 @@ my $server = $sorted_mirrors[0];
 my $checked_set_pattern = "^INSTALL|^bsd|tgz\$";
 my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
 
-for (split /\n/s, $SHA256) {
+for (@SHA256) {
         my $set = (/\((.*)\)/) ? $1 : die "Weird SHA256\n";
         my $status = ($set =~ $checked_set_pattern) ? "checked" : "not checked";
         $sets{$set} = $status;
@@ -149,7 +165,6 @@ for (split /\n/s, $SHA256) {
 my @sets;
 
 &sets_to_download();
-
 
 print "OK let's get the sets from $server!\n";
 
@@ -160,11 +175,12 @@ if ($pretend eq "yes") {
 }
 
 for my $set (sort keys %sets) {
-        if ($sets{$set} eq "checked"
-            && $SHA256 =~ /(SHA256 \($set\) = [a-f0-9]+\n)/s) {
+	my @sha256_line = grep /\($set\)/, @SHA256;
+        if ($sets{$set} eq "checked") {
+		print "yo\n";
                 if ($pretend eq "no") {
                         system("ftp", "-r 1", "$server/snapshots/$hw/$set");
-                        push @stripped_SHA256, $1;
+                        push @stripped_SHA256, $sha256_line[0];
                 } else {
                         print "ftp -r 1 $server/snapshots/$hw/$set\n";
                 }
@@ -182,7 +198,6 @@ if ($pretend eq "no") {
         print $str_index_txt;
         print $index_txt $str_index_txt;
 }
-
 
 sub format_check { # format_check(\@list)
 

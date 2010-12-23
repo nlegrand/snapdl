@@ -60,10 +60,6 @@ TODO
 * stop the chatty interactive mess and write something that can be
   cronable.
 
-* make snapdl check if a preceding download is the same as the one
-  available right now to prevent it from downloading the same thing
-  again.
-
 * make something than run well on Mac OS X, FreeBSD and Linux at
   least.
 
