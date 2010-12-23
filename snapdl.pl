@@ -77,6 +77,128 @@ if (-e "$snapdl_dir/countries") {
 	close $fh_countries;
 }
 
+&country();
+
+my @mirrors;
+
+
+&protocol();
+
+my $sets_dir;
+my $pretend = "no";
+
+
+&sets_destination();
+
+chomp (my $hw = `uname -m`);
+
+&hw_platform();
+
+print "Getting SHA256 from main mirror\n";
+my $SHA256 = `ftp -o - http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$hw/SHA256`;
+
+if ( $SHA256 =~ /base([0-9]{2,2}).tgz/ ) {
+        my $r = $1;
+} else {
+        die "No good SHA256 from http://ftp.OpenBSD.org/. Aborting.\n";
+}
+
+
+
+my %synced_mirror; # { 'http://mirror.com' => $time }
+print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
+for my $candidat_server (@mirrors) {
+        my $url = "${candidat_server}snapshots/$hw/SHA256";
+        my $time_before_dl = [gettimeofday];
+        my $mirrored_SHA256;
+        eval {
+                local $SIG{ALRM} = sub {die "timeout\n"};
+                alarm 1;
+                $mirrored_SHA256 = `ftp -o - $url 2>/dev/null`;
+                alarm 0;
+        };
+        if ($@) {
+                die unless $@ eq "timeout\n";
+                next;
+        } else {
+                my $time = tv_interval $time_before_dl;
+                if ($SHA256 eq $mirrored_SHA256) {
+                        $synced_mirror{$candidat_server} = $time;
+                }
+        }
+}
+print "Done\n";
+
+my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
+die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1;
+
+my $server = $sorted_mirrors[0];
+
+
+&mirror();
+
+my $checked_set_pattern = "^INSTALL|^bsd|tgz\$";
+my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
+
+for (split /\n/s, $SHA256) {
+        my $set = (/\((.*)\)/) ? $1 : die "Weird SHA256\n";
+        my $status = ($set =~ $checked_set_pattern) ? "checked" : "not checked";
+        $sets{$set} = $status;
+}
+
+my @sets;
+
+&sets_to_download();
+
+
+print "OK let's get the sets from $server!\n";
+
+my @stripped_SHA256; #SHA256 stripped from undownloaded sets
+
+if ($pretend eq "yes") {
+        print "Pretending:\n";
+}
+
+for my $set (sort keys %sets) {
+        if ($sets{$set} eq "checked"
+            && $SHA256 =~ /(SHA256 \($set\) = [a-f0-9]+\n)/s) {
+                if ($pretend eq "no") {
+                        system("ftp", "-r 1", "$server/snapshots/$hw/$set");
+                        push @stripped_SHA256, $1;
+                } else {
+                        print "ftp -r 1 $server/snapshots/$hw/$set\n";
+                }
+        }
+}
+
+if ($pretend eq "no") {
+        open my $fh_SHA256, '>', 'SHA256' or die $!;
+        print $fh_SHA256 @stripped_SHA256;
+        print "Checksum:\n";
+        system("cksum", "-a sha256", "-c", "SHA256") ;
+        die "Bad checksum" if ($? != 0);
+        my $str_index_txt = `ls -l`;
+        open my $index_txt, '>', 'index.txt' or die $!;
+        print $str_index_txt;
+        print $index_txt $str_index_txt;
+}
+
+
+sub format_check { # format_check(\@list)
+
+	my $list_ref = shift @_;
+ 	my $col_size = int($#{$list_ref} / 4);
+	for (my $i = 0; $i <= $col_size; $i++) {
+		printf "%-20s",$list_ref->[$i];
+		for (my $j = 1; $j <= 3; $j++) {
+		    printf "%-20s",$list_ref->[$i + ($col_size + 1) * $j]
+			if (defined($list_ref->[$i + ($col_size + 1) * $j]));
+		}
+	        print "\n";
+	}
+}
+
+
 sub country
 {
 	while (1) {
@@ -127,10 +249,6 @@ sub country
         }
 }
 
-&country();
-
-my @mirrors;
-
 sub protocol
 {
         printf "Protocols? ('ftp', 'http' or 'both') [http] ";
@@ -148,16 +266,12 @@ sub protocol
                         for (@{ $mirrors{$_}->[1] }) {
                                 if (/$proto_pattern/) {
                                         push @mirrors, $_;
-                                } 
+                                }
                         }
-                }   
+                }
         }
 }
 
-&protocol();
-
-my $sets_dir; #path where to download sets
-my $pretend = "no";
 
 #interactively set installation sets destination
 sub sets_destination
@@ -181,9 +295,6 @@ sub sets_destination
 	}
 }
 
-&sets_destination();
-
-chomp (my $hw = `uname -m`);
 
 sub hw_platform
 {
@@ -231,48 +342,6 @@ sub hw_platform
 	}
 }
 
-&hw_platform();
-
-print "Getting SHA256 from main mirror\n";
-my $SHA256 = `ftp -o - http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$hw/SHA256`;
-
-if ( $SHA256 =~ /base([0-9]{2,2}).tgz/ ) {
-        my $r = $1;
-} else {
-        die "No good SHA256 from http://ftp.OpenBSD.org/. Aborting.\n";
-}
-
-
-
-my %synced_mirror; # { 'http://mirror.com' => $time }
-print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
-for my $candidat_server (@mirrors) {
-        my $url = "${candidat_server}snapshots/$hw/SHA256";
-        my $time_before_dl = [gettimeofday];
-        my $mirrored_SHA256;
-        eval {
-                local $SIG{ALRM} = sub {die "timeout\n"};
-                alarm 1;
-                $mirrored_SHA256 = `ftp -o - $url 2>/dev/null`;
-                alarm 0;
-        };
-        if ($@) {
-                die unless $@ eq "timeout\n";
-                next;
-        } else {
-                my $time = tv_interval $time_before_dl;
-                if ($SHA256 eq $mirrored_SHA256) {
-                        $synced_mirror{$candidat_server} = $time;
-                }
-        }
-}
-print "Done\n";
-
-my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
-die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1;
-
-my $server = $sorted_mirrors[0];
-
 #choose your mirror
 sub mirror {
 	while (1) {
@@ -297,19 +366,7 @@ sub mirror {
 	}
 }
 
-&mirror();
-
-my $checked_set_pattern = "^INSTALL|^bsd|tgz\$";
-my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
-
-for (split /\n/s, $SHA256) {
-        my $set = (/\((.*)\)/) ? $1 : die "Weird SHA256\n";
-        my $status = ($set =~ $checked_set_pattern) ? "checked" : "not checked";
-        $sets{$set} = $status;
-}
-
-my @sets;
-
+#path where to download sets
 sub sets_to_download
 {
 	while (1) {
@@ -346,54 +403,4 @@ sub sets_to_download
 			next;
 		}
         }
-}
-
-&sets_to_download();
-
-
-print "OK let's get the sets from $server!\n";
-
-my @stripped_SHA256; #SHA256 stripped from undownloaded sets
-
-if ($pretend eq "yes") {
-        print "Pretending:\n";
-}
-
-for my $set (sort keys %sets) {
-        if ($sets{$set} eq "checked"
-            && $SHA256 =~ /(SHA256 \($set\) = [a-f0-9]+\n)/s) {
-                if ($pretend eq "no") {
-                        system("ftp", "-r 1", "$server/snapshots/$hw/$set");
-                        push @stripped_SHA256, $1;
-                } else {
-                        print "ftp -r 1 $server/snapshots/$hw/$set\n";
-                }
-        }
-}
-
-if ($pretend eq "no") {
-        open my $fh_SHA256, '>', 'SHA256' or die $!;
-        print $fh_SHA256 @stripped_SHA256;
-        print "Checksum:\n";
-        system("cksum", "-a sha256", "-c", "SHA256") ;
-        die "Bad checksum" if ($? != 0);
-        my $str_index_txt = `ls -l`;
-        open my $index_txt, '>', 'index.txt' or die $!;
-        print $str_index_txt;
-        print $index_txt $str_index_txt;
-}
-
-
-sub format_check { # format_check(\@list)
-
-	my $list_ref = shift @_;
- 	my $col_size = int($#{$list_ref} / 4);
-	for (my $i = 0; $i <= $col_size; $i++) {
-		printf "%-20s",$list_ref->[$i];
-		for (my $j = 1; $j <= 3; $j++) {
-		    printf "%-20s",$list_ref->[$i + ($col_size + 1) * $j]
-			if (defined($list_ref->[$i + ($col_size + 1) * $j]));
-		}
-	        print "\n";
-	}
 }
