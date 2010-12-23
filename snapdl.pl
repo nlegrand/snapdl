@@ -130,7 +130,9 @@ sub country
 &country();
 
 my @mirrors;
-PROTOCOL: {
+
+sub protocol
+{
         printf "Protocols? ('ftp', 'http' or 'both') [http] ";
         chomp(my $line = <STDIN>);
         my $proto_pattern;
@@ -152,24 +154,34 @@ PROTOCOL: {
         }
 }
 
+&protocol();
+
 my $sets_dir; #path where to download sets
 my $pretend = "no";
-SETS: {
-        $sets_dir = "$ENV{'HOME'}/OpenBSD";
-        printf "Path to download sets? (or 'pretend' ) [$sets_dir] ";
-        chomp(my $line = <STDIN>);
-        if ($line eq "pretend") {
-                $pretend = "yes";
-                last SETS;
-        } elsif ($line) {
-                $sets_dir = $line;
-        } 
-        if (! -d $sets_dir) {
-                system("mkdir", "-p", $sets_dir);
-                die "Can't mkdir -p $sets_dir" if ($? != 0);
-        }
-        (! -d $sets_dir ) ? redo SETS : chdir($sets_dir);
+
+#interactively set installation sets destination
+sub sets_destination
+{
+	while(1) {
+		$sets_dir = "$ENV{'HOME'}/OpenBSD";
+		printf "Path to download sets? (or 'pretend' ) [$sets_dir] ";
+		chomp(my $line = <STDIN>);
+		if ($line eq "pretend") {
+			$pretend = "yes";
+			last;
+		} elsif ($line) {
+			$sets_dir = $line;
+		} 
+		if (! -d $sets_dir) {
+			system("mkdir", "-p", $sets_dir);
+			die "Can't mkdir -p $sets_dir" if ($? != 0);
+		}
+		(! -d $sets_dir ) ? next : chdir($sets_dir);
+		last;
+	}
 }
+
+&sets_destination();
 
 my @platforms = ( "alpha",
                   "amd64",
