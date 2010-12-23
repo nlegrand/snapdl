@@ -66,3 +66,7 @@ TODO
 
 * make something than run well on Mac OS X, FreeBSD and Linux at
   least.
+
+* make the timeout setable.
+
+* make fuller stat reports (synced, unsynced, timeouted).
