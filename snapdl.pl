@@ -27,14 +27,27 @@ if ($#ARGV > -1) {
 	exit 1;
 }
 
-
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
 	printf "Creating $ENV{'HOME'}/.snapdl\n";
 	mkdir "$ENV{'HOME'}/.snapdl" or die "can't mkdir $ENV{'HOME'}/.snapdl";
 }
-my $i_want_a_new_mirrors_dat;
-if (-e "$snapdl_dir/mirrors.dat") {
+
+my $interactive = "no";
+
+open my $conf_file, '<', "$ENV{'HOME'}/.snapdl/snapdl.conf";
+my %conf;
+while (<$conf_file>) {
+	chomp;
+	if(m/^([a-z_]+)=([A-Za-z,\/~0-9]+)$/) {
+		$conf{$1} = $2;
+	}
+}
+
+$conf{'sets_dest'} =~ s!^~!$ENV{'HOME'}!;
+
+my $i_want_a_new_mirrors_dat = "no";
+if (-e "$snapdl_dir/mirrors.dat" && $interactive eq "yes") {
 	my $mtime = (stat("$snapdl_dir/mirrors.dat"))[9];
 	my $mod_date = localtime $mtime;
 	print "You got your mirror list since $mod_date\n";
@@ -67,34 +80,51 @@ while (<$mirrors_dat>) {
 
 close $mirrors_dat;
 
-my $fh_countries;
-if (-e "$snapdl_dir/countries") {
-	open $fh_countries, '<', "$ENV{'HOME'}/.snapdl/countries" or die "can't open $ENV{'HOME'}/.snapdl/countries";
-	while (my $country = <$fh_countries>) {
-		chomp($country);
-		if (defined($mirrors{$country})) {
-			$mirrors{$country}->[0] = "checked";
-		}
+for my $country (split ',', $conf{'countries'}) {
+	if (defined($mirrors{$country})) {
+		$mirrors{$country}->[0] = "checked";
 	}
-	close $fh_countries;
 }
 
-&country();
+&country() if ($interactive eq "yes");
 
-my @mirrors;
+my @mirrors ;
 
+if ($interactive eq "yes") {
+	printf "Protocols? ('ftp', 'http' or 'both') [http] ";
+	chomp($conf{'protocol'} = <STDIN>);
+}
 
-&protocol();
+my $proto_pattern;
 
-my $sets_dir;
+if ($conf{'protocol'} =~ /^$|http/) {
+	$proto_pattern = "^http";
+} elsif ($conf{'protocol'} =~ /ftp/) {
+	$proto_pattern = "^ftp";
+} else {
+	$proto_pattern = "^ftp|^http";
+}
+
+for (keys %mirrors) {
+	if ($mirrors{$_}->[0] eq "checked") {
+		for (@{ $mirrors{$_}->[1] }) {
+			if (/$proto_pattern/) {
+				push @mirrors, $_;
+			}
+		}
+	}
+}
+
 my $pretend = "no";
 
 
-&sets_destination();
+&sets_destination() if ($interactive eq "yes");
+
+chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 
 chomp (my $hw = `uname -m`);
 
-&hw_platform();
+&hw_platform() if ($interactive eq "yes");
 
 my( $fh_new_sha256, $new_sha256) = tempfile;
 
@@ -151,7 +181,7 @@ die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1;
 my $server = $sorted_mirrors[0];
 
 
-&mirror();
+&mirror() if ($interactive eq "yes");
 
 my $checked_set_pattern = "^INSTALL|^bsd|tgz\$";
 my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
@@ -164,7 +194,7 @@ for (@SHA256) {
 
 my @sets;
 
-&sets_to_download();
+&sets_to_download() if ($interactive eq "yes");
 
 print "OK let's get the sets from $server!\n";
 
@@ -177,7 +207,6 @@ if ($pretend eq "yes") {
 for my $set (sort keys %sets) {
 	my @sha256_line = grep /\($set\)/, @SHA256;
         if ($sets{$set} eq "checked") {
-		print "yo\n";
                 if ($pretend eq "no") {
                         system("ftp", "-r 1", "$server/snapshots/$hw/$set");
                         push @stripped_SHA256, $sha256_line[0];
@@ -229,18 +258,6 @@ sub country
 		my $operation;
 		my $pattern;
 		if ($line eq "done" || $line eq "") {
-			print "Write the chosen countries in ~/.snapdl/countries to check them by default? [no] ";
-			chomp($line = <STDIN>);
-			if ($line =~ /y|yes/i) {
-				open $fh_countries, '>', "$ENV{'HOME'}/.snapdl/countries"
-				  or die "can't open $ENV{'HOME'}/.snapdl/countries";
-				for (keys %mirrors) {
-					if ($mirrors{$_}->[0] eq "checked") {
-						printf $fh_countries "$_\n";
-					}
-				}
-				close $fh_countries;
-			}
 			last;
 		} else {
 			if ($line =~ /(\+|-)(.+)/) {
@@ -264,49 +281,24 @@ sub country
         }
 }
 
-sub protocol
-{
-        printf "Protocols? ('ftp', 'http' or 'both') [http] ";
-        chomp(my $line = <STDIN>);
-        my $proto_pattern;
-        if ($line =~ /^$|http/) {
-                $proto_pattern = "^http";
-        } elsif ($line =~ /ftp/) {
-                $proto_pattern = "^ftp";
-        } else {
-                $proto_pattern = "^ftp|^http";
-        }
-        for (keys %mirrors) {
-                if ($mirrors{$_}->[0] eq "checked") {
-                        for (@{ $mirrors{$_}->[1] }) {
-                                if (/$proto_pattern/) {
-                                        push @mirrors, $_;
-                                }
-                        }
-                }
-        }
-}
-
-
 #interactively set installation sets destination
 sub sets_destination
 {
 	while(1) {
-		$sets_dir = "$ENV{'HOME'}/OpenBSD";
-		printf "Path to download sets? (or 'pretend' ) [$sets_dir] ";
+		$conf{'sets_dest'} = "$ENV{'HOME'}/OpenBSD";
+		printf "Path to download sets? (or 'pretend' ) [$conf{'sets_dest'}] ";
 		chomp(my $line = <STDIN>);
 		if ($line eq "pretend") {
 			$pretend = "yes";
 			last;
 		} elsif ($line) {
-			$sets_dir = $line;
+			$conf{'sets_dest'} = $line;
 		} 
-		if (! -d $sets_dir) {
-			system("mkdir", "-p", $sets_dir);
-			die "Can't mkdir -p $sets_dir" if ($? != 0);
+		if (! -d $conf{'sets_dest'}) {
+			system("mkdir", "-p", $conf{'sets_dest'});
+			die "Can't mkdir -p $conf{'sets_dest'}" if ($? != 0);
 		}
-		(! -d $sets_dir ) ? next : chdir($sets_dir);
-		last;
+		(! -d $conf{'sets_dest'} ) ? next : last;
 	}
 }
 
@@ -381,7 +373,7 @@ sub mirror {
 	}
 }
 
-#path where to download sets
+#choose sets to download
 sub sets_to_download
 {
 	while (1) {
