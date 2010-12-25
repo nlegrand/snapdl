@@ -86,7 +86,7 @@ for my $country (split ',', $conf{'countries'}) {
 	}
 }
 
-&country() if ($interactive eq "yes");
+&choose_country() if ($interactive eq "yes");
 
 my @mirrors ;
 
@@ -118,13 +118,13 @@ for (keys %mirrors) {
 my $pretend = "no";
 
 
-&sets_destination() if ($interactive eq "yes");
+&choose_sets_dest() if ($interactive eq "yes");
 
 chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 
 chomp (my $hw = `uname -m`);
 
-&hw_platform() if ($interactive eq "yes");
+&choose_hw() if ($interactive eq "yes");
 
 my( $fh_new_sha256, $new_sha256) = tempfile;
 
@@ -147,7 +147,6 @@ if (compare($new_sha256, "SHA256.orig") == 0) {
 }
 
 copy($new_sha256, "SHA256.orig") if ($pretend eq "no");
-close($fh_new_sha256);
 
 my %synced_mirror; # { 'http://mirror.com' => $time }
 print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
@@ -167,12 +166,15 @@ for my $candidat_server (@mirrors) {
                 next;
         } else {
                 my $time = tv_interval $time_before_dl;
-                if (compare("SHA256.orig", $mirrored_sha256) == 0) {
+                if (compare($new_sha256, $mirrored_sha256) == 0) {
                         $synced_mirror{$candidat_server} = $time;
                 }
 		close $fh_mirrored_sha256;
         }
 }
+
+close($fh_new_sha256);
+
 print "Done\n";
 
 my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
@@ -181,7 +183,7 @@ die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1;
 my $server = $sorted_mirrors[0];
 
 
-&mirror() if ($interactive eq "yes");
+&choose_mirror() if ($interactive eq "yes");
 
 my $checked_set_pattern = "^INSTALL|^bsd|tgz\$";
 my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
@@ -194,7 +196,7 @@ for (@SHA256) {
 
 my @sets;
 
-&sets_to_download() if ($interactive eq "yes");
+&choose_sets() if ($interactive eq "yes");
 
 print "OK let's get the sets from $server!\n";
 
@@ -243,7 +245,7 @@ sub format_check { # format_check(\@list)
 }
 
 
-sub country
+sub choose_country
 {
 	while (1) {
 		print "Which countries you want to download from?:\n";
@@ -281,8 +283,7 @@ sub country
         }
 }
 
-#interactively set installation sets destination
-sub sets_destination
+sub choose_sets_dest
 {
 	while(1) {
 		$conf{'sets_dest'} = "$ENV{'HOME'}/OpenBSD";
@@ -303,7 +304,7 @@ sub sets_destination
 }
 
 
-sub hw_platform
+sub choose_hw
 {
 	my @platforms = ( "alpha",
 			  "amd64",
@@ -349,8 +350,7 @@ sub hw_platform
 	}
 }
 
-#choose your mirror
-sub mirror {
+sub choose_mirror {
 	while (1) {
 		print "Mirror? (or 'list') [$sorted_mirrors[0]] ";
 		chomp(my $line = <STDIN>);
@@ -373,8 +373,7 @@ sub mirror {
 	}
 }
 
-#choose sets to download
-sub sets_to_download
+sub choose_sets
 {
 	while (1) {
 		@sets = ();
