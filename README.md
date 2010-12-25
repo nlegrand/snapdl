@@ -57,9 +57,6 @@ TODO
 * write a module to tell which mirror package directory is
   synchronised with main mirror.
 
-* stop the chatty interactive mess and write something that can be
-  cronable.
-
 * make something than run well on Mac OS X, FreeBSD and Linux at
   least.
 

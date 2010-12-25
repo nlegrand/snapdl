@@ -17,15 +17,14 @@
 
 use strict;
 use warnings;
-use Time::HiRes qw(gettimeofday tv_interval);
+use Time::HiRes qw(gettimeofday tv_interval); 
 use File::Temp qw(tempfile);
 use File::Compare;
 use File::Copy;
+use Getopt::Std;
 
-if ($#ARGV > -1) {
-        print "usage: snapdl\n";
-	exit 1;
-}
+my %opts;
+getopts('ipnc:s:a:w:', \%opts);
 
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
@@ -33,28 +32,36 @@ if (! -d $snapdl_dir) {
 	mkdir "$ENV{'HOME'}/.snapdl" or die "can't mkdir $ENV{'HOME'}/.snapdl";
 }
 
-my $interactive = "no";
-
-open my $conf_file, '<', "$ENV{'HOME'}/.snapdl/snapdl.conf";
 my %conf;
+open my $conf_file, '<', "$ENV{'HOME'}/.snapdl/snapdl.conf";
 while (<$conf_file>) {
 	chomp;
-	if(m/^([a-z_]+)=([A-Za-z,\/~0-9]+)$/) {
+	if(m!^([a-z_]+)=([A-Za-z,/~0-9\^\|\$\\]+)$!
+	   && ! $conf{$_}) {
 		$conf{$1} = $2;
 	}
 }
 
+$conf{'interactive'}     = $opts{'i'};
+$conf{'pretend'}         = $opts{'p'};
+$conf{'new_mirrors_dat'} = $opts{'n'};
+$conf{'countries'}       = $opts{'c'} if ($opts{'c'});
+$conf{'sets_dest'}       = $opts{'s'} if ($opts{'s'});
+$conf{'which_sets'}      = $opts{'w'} if ($opts{'w'});
+$conf{'architecture'}    = $opts{'a'} if ($opts{'a'});
+
 $conf{'sets_dest'} =~ s!^~!$ENV{'HOME'}!;
 
-my $i_want_a_new_mirrors_dat = "no";
-if (-e "$snapdl_dir/mirrors.dat" && $interactive eq "yes") {
+my $get_a_new_mirrors_dat = "no";
+if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
 	my $mtime = (stat("$snapdl_dir/mirrors.dat"))[9];
 	my $mod_date = localtime $mtime;
 	print "You got your mirror list since $mod_date\n";
 	print "Do you want a new one? [no] ";
-	chomp($i_want_a_new_mirrors_dat = <STDIN>);
+	
+	$conf{'new_mirrors_dat'} = <STDIN> =~ /y|yes/i;
 } 
-if (! -e "$snapdl_dir/mirrors.dat" || $i_want_a_new_mirrors_dat =~ /y|yes/i) {
+if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 	chdir($snapdl_dir);
 	system("ftp", "http://www.OpenBSD.org/build/mirrors.dat");
 }
@@ -86,11 +93,11 @@ for my $country (split ',', $conf{'countries'}) {
 	}
 }
 
-&choose_country() if ($interactive eq "yes");
+&choose_country() if ($conf{'interactive'});
 
 my @mirrors ;
 
-if ($interactive eq "yes") {
+if ($conf{'interactive'}) {
 	printf "Protocols? ('ftp', 'http' or 'both') [http] ";
 	chomp($conf{'protocol'} = <STDIN>);
 }
@@ -115,16 +122,13 @@ for (keys %mirrors) {
 	}
 }
 
-my $pretend = "no";
-
-
-&choose_sets_dest() if ($interactive eq "yes");
+&choose_sets_dest() if ($conf{'interactive'});
 
 chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 
 chomp (my $hw = `uname -m`);
 
-&choose_hw() if ($interactive eq "yes");
+&choose_hw() if ($conf{'interactive'});
 
 my( $fh_new_sha256, $new_sha256) = tempfile;
 
@@ -146,7 +150,7 @@ if (compare($new_sha256, "SHA256.orig") == 0) {
 	die "You already have the last sets\n";
 }
 
-copy($new_sha256, "SHA256.orig") if ($pretend eq "no");
+copy($new_sha256, "SHA256.orig") if (! $conf{'pretend'});
 
 my %synced_mirror; # { 'http://mirror.com' => $time }
 print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
@@ -183,33 +187,32 @@ die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1;
 my $server = $sorted_mirrors[0];
 
 
-&choose_mirror() if ($interactive eq "yes");
+&choose_mirror() if ($conf{'interactive'});
 
-my $checked_set_pattern = "^INSTALL|^bsd|tgz\$";
 my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
 
 for (@SHA256) {
         my $set = (/\((.*)\)/) ? $1 : die "Weird SHA256\n";
-        my $status = ($set =~ $checked_set_pattern) ? "checked" : "not checked";
+        my $status = ($set =~ /$conf{'which_sets'}/) ? "checked" : "not checked";
         $sets{$set} = $status;
 }
 
 my @sets;
 
-&choose_sets() if ($interactive eq "yes");
+&choose_sets() if ($conf{'interactive'});
 
 print "OK let's get the sets from $server!\n";
 
 my @stripped_SHA256; #SHA256 stripped from undownloaded sets
 
-if ($pretend eq "yes") {
+if ($conf{'pretend'}) {
         print "Pretending:\n";
 }
 
 for my $set (sort keys %sets) {
 	my @sha256_line = grep /\($set\)/, @SHA256;
         if ($sets{$set} eq "checked") {
-                if ($pretend eq "no") {
+                if (! $conf{'pretend'}) {
                         system("ftp", "-r 1", "$server/snapshots/$hw/$set");
                         push @stripped_SHA256, $sha256_line[0];
                 } else {
@@ -218,7 +221,7 @@ for my $set (sort keys %sets) {
         }
 }
 
-if ($pretend eq "no") {
+if (! $conf{'pretend'}) {
         open my $fh_SHA256, '>', 'SHA256' or die $!;
         print $fh_SHA256 @stripped_SHA256;
         print "Checksum:\n";
@@ -290,7 +293,7 @@ sub choose_sets_dest
 		printf "Path to download sets? (or 'pretend' ) [$conf{'sets_dest'}] ";
 		chomp(my $line = <STDIN>);
 		if ($line eq "pretend") {
-			$pretend = "yes";
+			$conf{'pretend'} = 1;
 			last;
 		} elsif ($line) {
 			$conf{'sets_dest'} = $line;
@@ -306,7 +309,7 @@ sub choose_sets_dest
 
 sub choose_hw
 {
-	my @platforms = ( "alpha",
+	my @archs = ( "alpha",
 			  "amd64",
 			  "armish",
 			  "hp300",
@@ -326,24 +329,24 @@ sub choose_hw
 
 	while (1) {
 		chomp($hw = `uname -m`);
-		printf "Platform? (or 'list') [$hw] ";
+		printf "Architecture? (or 'list') [$hw] ";
 		chomp(my $line = <STDIN>);
 		if ($line eq 'list') {
-			print "Available platforms:\n";
-			for (@platforms) {
+			print "Available architectures:\n";
+			for (@archs) {
 				print "    $_\n";
 			}
 			next;
 		} elsif ($line) {
-			if ((grep {/^$line$/} @platforms) == 1) {
+			if ((grep {/^$line$/} @archs) == 1) {
 				$hw = $line;
 				last;
 			} else {
-				printf "Bad hardware platform name\n";
+				printf "Bad architecture name\n";
 				next;
 			}
 		} else {
-			if ((grep {/^$hw$/} @platforms) == 1) {
+			if ((grep {/^$hw$/} @archs) == 1) {
 				last;
 			}
 		}
