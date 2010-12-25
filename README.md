@@ -62,4 +62,6 @@ TODO
 
 * make the timeout setable.
 
+* add a snapdl.conf option checker as the archs are checked.
+
 * make fuller stat reports (synced, unsynced, timeouted).
