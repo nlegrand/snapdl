@@ -22,6 +22,7 @@ use File::Temp qw(tempfile);
 use File::Compare;
 use File::Copy;
 use Getopt::Std;
+use Digest::SHA;
 
 my %opts;
 getopts('ipnc:s:a:w:d:', \%opts);
@@ -233,12 +234,20 @@ for my $set (sort keys %sets) {
 if (! $conf{'pretend'}) {
         open my $fh_SHA256, '>', 'SHA256' or die $!;
         print $fh_SHA256 @stripped_SHA256;
+	close $fh_SHA256;
         print "Checksum:\n";
-        system("cksum", "-a sha256", "-c", "SHA256") ;
-        die "Bad checksum" if ($? != 0);
+	for (@stripped_SHA256) {
+		my $sha = Digest::SHA->new(256);
+		next unless (/^SHA256 \((.+)\) = ([a-zA-Z0-9]+)$/);
+		$sha->addfile($1);
+		if ($2 eq $sha->hexdigest) {
+			print "(SHA256) $1: OK\n";
+		} else {
+			print "(SHA256) $1: FAILED\n";
+		}
+	}
         my $str_index_txt = `ls -l`;
         open my $index_txt, '>', 'index.txt' or die $!;
-        print $str_index_txt;
         print $index_txt $str_index_txt;
 }
 

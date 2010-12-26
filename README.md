@@ -57,9 +57,6 @@ TODO
 * write a module to tell which mirror package directory is
   synchronised with main mirror.
 
-* make something than run well on Mac OS X, FreeBSD and Linux at
-  least.
-
 * make the timeout setable.
 
 * add a snapdl.conf option checker as the archs are checked.
