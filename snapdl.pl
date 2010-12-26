@@ -24,7 +24,7 @@ use File::Copy;
 use Getopt::Std;
 
 my %opts;
-getopts('ipnc:s:a:w:', \%opts);
+getopts('ipnc:s:a:w:d:', \%opts);
 
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
@@ -46,13 +46,17 @@ $conf{'interactive'}     = $opts{'i'};
 $conf{'pretend'}         = $opts{'p'};
 $conf{'new_mirrors_dat'} = $opts{'n'};
 $conf{'countries'}       = $opts{'c'} if ($opts{'c'});
+$conf{'downloader'}      = ($opts{'d'}) ? $opts{'d'} : "ftp";
 $conf{'sets_dest'}       = $opts{'s'} if ($opts{'s'});
 $conf{'which_sets'}      = $opts{'w'} if ($opts{'w'});
-$conf{'architecture'}    = $opts{'a'} if ($opts{'a'});
+if ($opts{'a'}) {
+	$conf{'arch'} = $opts{'a'};
+} elsif (! defined $conf{'arch'}) {
+	chomp($conf{'arch'} = `uname -m`);
+}
 
 $conf{'sets_dest'} =~ s!^~!$ENV{'HOME'}!;
 
-my $get_a_new_mirrors_dat = "no";
 if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
 	my $mtime = (stat("$snapdl_dir/mirrors.dat"))[9];
 	my $mod_date = localtime $mtime;
@@ -63,7 +67,7 @@ if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
 } 
 if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 	chdir($snapdl_dir);
-	system("ftp", "http://www.OpenBSD.org/build/mirrors.dat");
+	system($conf{'downloader'}, "-omirrors.dat","http://www.OpenBSD.org/build/mirrors.dat");
 }
 
 open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open $ENV{'HOME'}/.snapdl/mirrors.dat";
@@ -124,16 +128,20 @@ for (keys %mirrors) {
 
 &choose_sets_dest() if ($conf{'interactive'});
 
+if (! -d $conf{'sets_dest'}) {
+	system("mkdir", "-p", $conf{'sets_dest'});
+	die "Can't mkdir -p $conf{'sets_dest'}" if ($? != 0);
+}
+
 chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 
-chomp (my $hw = `uname -m`);
 
 &choose_hw() if ($conf{'interactive'});
 
 my( $fh_new_sha256, $new_sha256) = tempfile;
 
 print "Getting SHA256 from main mirror\n";
-`ftp -o $new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$hw/SHA256`;
+`$conf{'downloader'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$conf{'arch'}/SHA256`;
 
 my @SHA256;
 
@@ -146,7 +154,8 @@ while (<$fh_new_sha256>) {
 	push @SHA256, $_;
 }
 
-if (compare($new_sha256, "SHA256.orig") == 0) {
+if (compare($new_sha256, "SHA256.orig") == 0
+    && ! $conf{'pretend'}) {
 	die "You already have the last sets\n";
 }
 
@@ -155,13 +164,13 @@ copy($new_sha256, "SHA256.orig") if (! $conf{'pretend'});
 my %synced_mirror; # { 'http://mirror.com' => $time }
 print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
 for my $candidat_server (@mirrors) {
-        my $url = "${candidat_server}snapshots/$hw/SHA256";
+        my $url = "${candidat_server}snapshots/$conf{'arch'}/SHA256";
         my $time_before_dl = [gettimeofday];
         my ($fh_mirrored_sha256, $mirrored_sha256) = tempfile();
         eval {
                 local $SIG{ALRM} = sub {die "timeout\n"};
                 alarm 1;
-                `ftp -o $mirrored_sha256 $url 2>/dev/null`;
+                `$conf{'downloader'} -o$mirrored_sha256 $url 2>/dev/null`;
                 alarm 0;
         };
         if ($@) {
@@ -213,10 +222,10 @@ for my $set (sort keys %sets) {
 	my @sha256_line = grep /\($set\)/, @SHA256;
         if ($sets{$set} eq "checked") {
                 if (! $conf{'pretend'}) {
-                        system("ftp", "-r 1", "$server/snapshots/$hw/$set");
+                        system($conf{'downloader'}, "-o$set", "$server/snapshots/$conf{'arch'}/$set");
                         push @stripped_SHA256, $sha256_line[0];
                 } else {
-                        print "ftp -r 1 $server/snapshots/$hw/$set\n";
+			print "$conf{'downloader'} -o$set $server/snapshots/$conf{'arch'}/$set\n";
                 }
         }
 }
@@ -328,25 +337,25 @@ sub choose_hw
 			  "zaurus" );
 
 	while (1) {
-		chomp($hw = `uname -m`);
-		printf "Architecture? (or 'list') [$hw] ";
+		chomp($conf{'arch'} = `uname -m`);
+		printf "Arch? (or 'list') [$conf{'arch'}] ";
 		chomp(my $line = <STDIN>);
 		if ($line eq 'list') {
-			print "Available architectures:\n";
+			print "Available archs:\n";
 			for (@archs) {
 				print "    $_\n";
 			}
 			next;
 		} elsif ($line) {
 			if ((grep {/^$line$/} @archs) == 1) {
-				$hw = $line;
+				$conf{'arch'} = $line;
 				last;
 			} else {
-				printf "Bad architecture name\n";
+				printf "Bad arch name\n";
 				next;
 			}
 		} else {
-			if ((grep {/^$hw$/} @archs) == 1) {
+			if ((grep {/^$conf{'arch'}$/} @archs) == 1) {
 				last;
 			}
 		}
