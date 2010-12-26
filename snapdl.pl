@@ -25,7 +25,7 @@ use Getopt::Std;
 use Digest::SHA;
 
 my %opts;
-getopts('ipnc:s:a:w:d:', \%opts);
+getopts('ipnc:s:a:S:d:', \%opts);
 
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
@@ -46,10 +46,34 @@ while (<$conf_file>) {
 $conf{'interactive'}     = $opts{'i'};
 $conf{'pretend'}         = $opts{'p'};
 $conf{'new_mirrors_dat'} = $opts{'n'};
-$conf{'countries'}       = $opts{'c'} if ($opts{'c'});
-$conf{'downloader'}      = ($opts{'d'}) ? $opts{'d'} : "ftp";
-$conf{'sets_dest'}       = $opts{'s'} if ($opts{'s'});
-$conf{'which_sets'}      = $opts{'w'} if ($opts{'w'});
+
+die "Setting at least one country is mandatory, eg:
+snpadl -c France[,Germany...]" if (! $conf{'countries'} && ! $opts{'c'});
+
+if ($opts{'C'}) {
+	$conf{'command'} = $opts{'C'};
+} elsif (! defined $conf{'command'}) {
+	$conf{'command'} = "ftp";
+}
+
+if ($opts{'s'}) {
+	$conf{'sets_dest'} = $opts{'s'};
+} elsif (! defined $conf{'sets_dest'}) {
+	$conf{'sets_dest'} = "$ENV{'HOME'}/OpenBSD";
+}
+
+if ($opts{'S'}) {
+	$conf{'sets'} = $opts{'S'};
+} elsif (! defined $conf{'sets'}) {
+	$conf{'sets'} = '^INSTALL|^bsd|tgz$';
+}
+
+if ($opts{'P'}) {
+	$conf{'protocol'} = $opts{'P'};
+} elsif (! defined $conf{'protocol'}) {
+        $conf{'protocol'} = "http";
+}
+
 if ($opts{'a'}) {
 	$conf{'arch'} = $opts{'a'};
 } elsif (! defined $conf{'arch'}) {
@@ -68,7 +92,7 @@ if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
 } 
 if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 	chdir($snapdl_dir);
-	system($conf{'downloader'}, "-omirrors.dat","http://www.OpenBSD.org/build/mirrors.dat");
+	system($conf{'command'}, "-omirrors.dat","http://www.OpenBSD.org/build/mirrors.dat");
 }
 
 open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open $ENV{'HOME'}/.snapdl/mirrors.dat";
@@ -142,7 +166,7 @@ chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 my( $fh_new_sha256, $new_sha256) = tempfile;
 
 print "Getting SHA256 from main mirror\n";
-`$conf{'downloader'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$conf{'arch'}/SHA256`;
+`$conf{'command'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$conf{'arch'}/SHA256`;
 
 my @SHA256;
 
@@ -171,7 +195,7 @@ for my $candidat_server (@mirrors) {
         eval {
                 local $SIG{ALRM} = sub {die "timeout\n"};
                 alarm 1;
-                `$conf{'downloader'} -o$mirrored_sha256 $url 2>/dev/null`;
+                `$conf{'command'} -o$mirrored_sha256 $url 2>/dev/null`;
                 alarm 0;
         };
         if ($@) {
@@ -203,7 +227,7 @@ my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
 
 for (@SHA256) {
         my $set = (/\((.*)\)/) ? $1 : die "Weird SHA256\n";
-        my $status = ($set =~ /$conf{'which_sets'}/) ? "checked" : "not checked";
+        my $status = ($set =~ /$conf{'sets'}/) ? "checked" : "not checked";
         $sets{$set} = $status;
 }
 
@@ -223,10 +247,10 @@ for my $set (sort keys %sets) {
 	my @sha256_line = grep /\($set\)/, @SHA256;
         if ($sets{$set} eq "checked") {
                 if (! $conf{'pretend'}) {
-                        system($conf{'downloader'}, "-o$set", "$server/snapshots/$conf{'arch'}/$set");
+                        system($conf{'command'}, "-o$set", "$server/snapshots/$conf{'arch'}/$set");
                         push @stripped_SHA256, $sha256_line[0];
                 } else {
-			print "$conf{'downloader'} -o$set $server/snapshots/$conf{'arch'}/$set\n";
+			print "$conf{'command'} -o$set $server/snapshots/$conf{'arch'}/$set\n";
                 }
         }
 }
