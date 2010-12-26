@@ -25,7 +25,7 @@ use Getopt::Std;
 use Digest::SHA;
 
 my %opts;
-getopts('ipnc:s:a:S:d:', \%opts);
+getopts('ipnc:s:a:S:P:C:t:', \%opts);
 
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
@@ -66,6 +66,12 @@ if ($opts{'S'}) {
 	$conf{'sets'} = $opts{'S'};
 } elsif (! defined $conf{'sets'}) {
 	$conf{'sets'} = '^INSTALL|^bsd|tgz$';
+}
+
+if ($opts{'t'}) {
+	$conf{'timeout'} = $opts{'t'};
+} elsif (! defined $conf{'timeout'}) {
+	$conf{'timeout'} = 1;
 }
 
 if ($opts{'P'}) {
@@ -194,7 +200,7 @@ for my $candidat_server (@mirrors) {
         my ($fh_mirrored_sha256, $mirrored_sha256) = tempfile();
         eval {
                 local $SIG{ALRM} = sub {die "timeout\n"};
-                alarm 1;
+                alarm $conf{'timeout'};
                 `$conf{'command'} -o$mirrored_sha256 $url 2>/dev/null`;
                 alarm 0;
         };
