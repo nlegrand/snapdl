@@ -58,5 +58,3 @@ TODO
   synchronised with main mirror.
 
 * add a snapdl.conf option checker as the archs are checked.
-
-* make fuller stat reports (synced, unsynced, timeouted).

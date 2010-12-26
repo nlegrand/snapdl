@@ -25,7 +25,7 @@ use Getopt::Std;
 use Digest::SHA;
 
 my %opts;
-getopts('ipnc:s:a:S:P:C:t:', \%opts);
+getopts('ipnrc:s:a:S:P:C:t:', \%opts);
 
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
@@ -46,9 +46,12 @@ while (<$conf_file>) {
 $conf{'interactive'}     = $opts{'i'};
 $conf{'pretend'}         = $opts{'p'};
 $conf{'new_mirrors_dat'} = $opts{'n'};
+$conf{'report'}          = $opts{'r'};
 
 die "Setting at least one country is mandatory, eg:
 snpadl -c France[,Germany...]" if (! $conf{'countries'} && ! $opts{'c'});
+
+$conf{'countries'} =  $opts{'c'} if ($opts{'c'});
 
 if ($opts{'C'}) {
 	$conf{'command'} = $opts{'C'};
@@ -193,11 +196,13 @@ if (compare($new_sha256, "SHA256.orig") == 0
 copy($new_sha256, "SHA256.orig") if (! $conf{'pretend'});
 
 my %synced_mirror; # { 'http://mirror.com' => $time }
+my %unsynced_mirror;
+my %timeouted_mirror;
 print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
 for my $candidat_server (@mirrors) {
         my $url = "${candidat_server}snapshots/$conf{'arch'}/SHA256";
-        my $time_before_dl = [gettimeofday];
         my ($fh_mirrored_sha256, $mirrored_sha256) = tempfile();
+        my $time_before_dl = [gettimeofday];
         eval {
                 local $SIG{ALRM} = sub {die "timeout\n"};
                 alarm $conf{'timeout'};
@@ -207,12 +212,15 @@ for my $candidat_server (@mirrors) {
         if ($@) {
                 die unless $@ eq "timeout\n";
 		close $fh_mirrored_sha256;
+		$timeouted_mirror{$candidat_server} = "$conf{'timeout'}";
                 next;
         } else {
                 my $time = tv_interval $time_before_dl;
                 if (compare($new_sha256, $mirrored_sha256) == 0) {
                         $synced_mirror{$candidat_server} = $time;
-                }
+                } else {
+			$unsynced_mirror{$candidat_server} = $time;
+		}
 		close $fh_mirrored_sha256;
         }
 }
@@ -222,7 +230,7 @@ close($fh_new_sha256);
 print "Done\n";
 
 my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
-die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1;
+die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1 ;
 
 my $server = $sorted_mirrors[0];
 
@@ -279,6 +287,46 @@ if (! $conf{'pretend'}) {
         my $str_index_txt = `ls -l`;
         open my $index_txt, '>', 'index.txt' or die $!;
         print $index_txt $str_index_txt;
+}
+
+&print_report() if ($conf{'report'});
+
+sub print_report {
+	print "\n\n";
+	print "Reporting synchronization of sets repositories:\n";
+	print "===============================================\n\n";
+	print "Synced mirrors:\n";
+	if ($#sorted_mirrors == -1) {
+		print "None\n";
+	} else {
+		for (@sorted_mirrors) {
+			printf "%8f s.    %s\n", $synced_mirror{$_}, $_;
+		}
+	}
+	print "\n";
+	print "Unsynced mirrors:\n";
+	my @sorted_unsynced = sort
+	  {$unsynced_mirror{$a} <=> $unsynced_mirror{$b}}
+	    keys %unsynced_mirror;
+	if ($#sorted_unsynced == -1) {
+		print "None\n";
+	} else {
+		for (@sorted_unsynced) {
+			printf "%8f s.    %s\n", $unsynced_mirror{$_}, $_;
+		}
+	}
+	print "\n";
+	print "Timeouted mirrors:\n";
+	my @timeouted_mirrors = sort {$timeouted_mirror{$a} <=> $timeouted_mirror{$b}}
+	  keys %timeouted_mirror;
+	if ($#timeouted_mirrors == -1) {
+		print "None\n";
+	} else {
+		for (@timeouted_mirrors) {
+			print $_;
+			printf "%8f s.    %s\n", $timeouted_mirror{$_}, $_;
+		}
+	}
 }
 
 sub format_check { # format_check(\@list)
