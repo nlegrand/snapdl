@@ -54,7 +54,4 @@ checksum will fail on those two systems.
 TODO
 =====
 
-* write a module to tell which mirror package directory is
-  synchronised with main mirror.
-
 * add a snapdl.conf option checker as the archs are checked.

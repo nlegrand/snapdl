@@ -25,7 +25,7 @@ use Getopt::Std;
 use Digest::SHA;
 
 my %opts;
-getopts('ipnrc:s:a:S:P:C:t:', \%opts);
+getopts('ipnrRc:s:a:S:P:C:t:V:', \%opts);
 
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
@@ -47,11 +47,27 @@ $conf{'interactive'}     = $opts{'i'};
 $conf{'pretend'}         = $opts{'p'};
 $conf{'new_mirrors_dat'} = $opts{'n'};
 $conf{'report'}          = $opts{'r'};
+$conf{'report_packages'} = $opts{'R'};
 
 die "Setting at least one country is mandatory, eg:
 snpadl -c France[,Germany...]" if (! $conf{'countries'} && ! $opts{'c'});
 
 $conf{'countries'} =  $opts{'c'} if ($opts{'c'});
+
+if ($opts{'V'}) {
+	$conf{'version'} = $opts{'V'};
+} elsif (! defined $conf{'version'}) {
+	$conf{'version'} = "snapshots";
+}
+
+if ($conf{'report_packages'}) {
+	$conf{'pretend'} = 1;
+	$conf{'report'}  = 1;
+	$conf{'version'} .= "/packages";
+	$conf{'timeout'} = 10;
+}
+
+print "$conf{'version'}\n";
 
 if ($opts{'C'}) {
 	$conf{'command'} = $opts{'C'};
@@ -175,18 +191,24 @@ chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 my( $fh_new_sha256, $new_sha256) = tempfile;
 
 print "Getting SHA256 from main mirror\n";
-`$conf{'command'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/snapshots/$conf{'arch'}/SHA256`;
+`$conf{'command'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/$conf{'version'}/$conf{'arch'}/SHA256`;
 
 my @SHA256;
 
+my $line_count = 0;
 while (<$fh_new_sha256>) {
-	if (/^SHA256 \(base([0-9]{2,2}).tgz\) = [0-9a-zA-Z]+$/) {
+	$line_count += 1;
+	if (/^SHA256 \(base([0-9]{2,2}).tgz\) = [0-9a-zA-Z]+$/
+	    && ! $conf{'report'}) {
 		my $r = $1;
-	} elsif (! /^SHA256 \([a-zA-Z0-9.]+\) = [0-9a-zA-Z]+$/) {
-		die "No good SHA256 from http://ftp.OpenBSD.org/. Aborting.\n";
+	} elsif (! m!^SHA256 \([a-zA-Z0-9.\-_+@]+\) = [0-9a-zA-Z=+/]+.!s) {
+		die "$_: bad SHA256 format from http://ftp.OpenBSD.org/. Aborting.\n";
 	}
-	push @SHA256, $_;
+	push @SHA256, $_ if ! $conf{'report'};
 }
+die "Empty or no SHA256 from http://ftp.OpenBSD.org/. Aborting.\n"
+  if $line_count == 0;
+
 
 if (compare($new_sha256, "SHA256.orig") == 0
     && ! $conf{'pretend'}) {
@@ -200,7 +222,7 @@ my %unsynced_mirror;
 my %timeouted_mirror;
 print "Let's locate mirrors synchronised with ftp.OpenBSD.org... ";
 for my $candidat_server (@mirrors) {
-        my $url = "${candidat_server}snapshots/$conf{'arch'}/SHA256";
+        my $url = "${candidat_server}$conf{'version'}/$conf{'arch'}/SHA256";
         my ($fh_mirrored_sha256, $mirrored_sha256) = tempfile();
         my $time_before_dl = [gettimeofday];
         eval {
@@ -230,7 +252,8 @@ close($fh_new_sha256);
 print "Done\n";
 
 my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
-die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1 ;
+die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1
+  && !$conf{'report'};
 
 my $server = $sorted_mirrors[0];
 
@@ -253,20 +276,20 @@ print "OK let's get the sets from $server!\n";
 
 my @stripped_SHA256; #SHA256 stripped from undownloaded sets
 
-if ($conf{'pretend'}) {
+if ($conf{'pretend'} && ! $conf{'report_packages'}) {
         print "Pretending:\n";
 }
 
 for my $set (sort keys %sets) {
 	my @sha256_line = grep /\($set\)/, @SHA256;
-        if ($sets{$set} eq "checked") {
-                if (! $conf{'pretend'}) {
-                        system($conf{'command'}, "-o$set", "$server/snapshots/$conf{'arch'}/$set");
-                        push @stripped_SHA256, $sha256_line[0];
-                } else {
-			print "$conf{'command'} -o$set $server/snapshots/$conf{'arch'}/$set\n";
-                }
-        }
+	if ($sets{$set} eq "checked") {
+		if (! $conf{'pretend'}) {
+			system($conf{'command'}, "-o$set", "$server/$conf{'version'}/$conf{'arch'}/$set");
+			push @stripped_SHA256, $sha256_line[0];
+		} else {
+			print "$conf{'command'} -o$set $server/$conf{'version'}/$conf{'arch'}/$set\n";
+		}
+	}
 }
 
 if (! $conf{'pretend'}) {
@@ -300,7 +323,7 @@ sub print_report {
 		print "None\n";
 	} else {
 		for (@sorted_mirrors) {
-			printf "%8f s.    %s\n", $synced_mirror{$_}, $_;
+			printf "%12f s.    %s\n", $synced_mirror{$_}, $_;
 		}
 	}
 	print "\n";
@@ -312,7 +335,7 @@ sub print_report {
 		print "None\n";
 	} else {
 		for (@sorted_unsynced) {
-			printf "%8f s.    %s\n", $unsynced_mirror{$_}, $_;
+			printf "%12f s.    %s\n", $unsynced_mirror{$_}, $_;
 		}
 	}
 	print "\n";
@@ -323,8 +346,7 @@ sub print_report {
 		print "None\n";
 	} else {
 		for (@timeouted_mirrors) {
-			print $_;
-			printf "%8f s.    %s\n", $timeouted_mirror{$_}, $_;
+			printf "%12f s.    %s\n", $timeouted_mirror{$_}, $_;
 		}
 	}
 }
