@@ -24,6 +24,10 @@ use File::Copy;
 use Getopt::Std;
 use Digest::SHA;
 
+my @archs = ( "alpha", "amd64", "armish", "hp300", "hppa", "i386", "landisk",
+	      "loongson", "macppc", "mvme68k", "mvme88k", "sgi", "socppc",
+	      "sparc", "sparc64", "vax", "zaurus" );
+
 my %opts;
 getopts('ipnrRc:s:a:S:P:C:t:V:', \%opts);
 
@@ -427,24 +431,6 @@ sub choose_sets_dest
 
 sub choose_hw
 {
-	my @archs = ( "alpha",
-			  "amd64",
-			  "armish",
-			  "hp300",
-			  "hppa",
-			  "i386",
-			  "landisk",
-			  "loongson",
-			  "macppc",
-			  "mvme68k",
-			  "mvme88k",
-			  "sgi",
-			  "socppc",
-			  "sparc",
-			  "sparc64",
-			  "vax",
-			  "zaurus" );
-
 	while (1) {
 		chomp($conf{'arch'} = `uname -m`);
 		printf "Arch? (or 'list') [$conf{'arch'}] ";
