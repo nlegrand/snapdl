@@ -53,22 +53,26 @@ my %conf = ( 'version'   => 'snapshots',
 	     'countries' => 0
 	    );
 
+chomp($conf{'arch'});
+
 #read ~/.snapdl/snapdl.conf and override defaults conf
-open my $conf_file, '<', "$ENV{'HOME'}/.snapdl/snapdl.conf";
-while (<$conf_file>) {
-	chomp;
-	my @conf_entries = keys %conf;
-	if(m!^([a-z_]+)=([A-Za-z,/~0-9\^\|\$\\]+)$!) {
-		my $entry = $1;
-		my $value = $2;
-		if (grep /$entry/,@conf_entries) {
-			$conf{$entry} = $value;
-		} else {
-			die "$_ is not a valid entry in $ENV{'HOME'}/.snapdl/snapdl.conf
+if (-e "$ENV{'HOME'}/.snapdl/snapdl.conf") {
+	open my $conf_file, '<', "$ENV{'HOME'}/.snapdl/snapdl.conf";
+	while (<$conf_file>) {
+		chomp;
+		my @conf_entries = keys %conf;
+		if(m!^([a-z_]+)=([A-Za-z,/~0-9\^\|\$\\]+)$!) {
+			my $entry = $1;
+			my $value = $2;
+			if (grep /$entry/,@conf_entries) {
+				$conf{$entry} = $value;
+			} else {
+				die "$_ is not a valid entry in $ENV{'HOME'}/.snapdl/snapdl.conf
 could be any of: @conf_entries";
+			}
+		} else {
+			die "Bad $ENV{'HOME'}/.snapdl/snapdl.conf format:\n $_\n";
 		}
-	} else {
-		die "Bad $ENV{'HOME'}/.snapdl/snapdl.conf format:\n $_\n";
 	}
 }
 
@@ -92,6 +96,9 @@ $conf{'arch'}      = $opts{'a'} if $opts{'a'};
 $conf{'sets_dest'} =~ s!^~!$ENV{'HOME'}!;
 
 #check some value
+die "You should set at least a country on the command line eg: -c France
+or on ~/.snapdl/snapdl.conf: countries=France. You can had multiple countries
+separated by commas, eg: France,Germany." unless $conf{'countries'};
 $, = ' ';
 my @archs = ( "alpha", "amd64", "armish", "hp300", "hppa", "i386", "landisk",
 	      "loongson", "macppc", "mvme68k", "mvme88k", "sgi", "socppc",
