@@ -24,92 +24,86 @@ use File::Copy;
 use Getopt::Std;
 use Digest::SHA;
 
-my @archs = ( "alpha", "amd64", "armish", "hp300", "hppa", "i386", "landisk",
-	      "loongson", "macppc", "mvme68k", "mvme88k", "sgi", "socppc",
-	      "sparc", "sparc64", "vax", "zaurus" );
-
 my %opts;
 getopts('ipnrRc:s:a:S:P:C:t:V:', \%opts);
 
+#set conf dir
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
 	printf "Creating $ENV{'HOME'}/.snapdl\n";
 	mkdir "$ENV{'HOME'}/.snapdl" or die "can't mkdir $ENV{'HOME'}/.snapdl";
 }
 
-my %conf;
+#set default conf
+my %conf = ( 'version'   => 'snapshots',
+	     'command'   => 'ftp',
+	     'sets_dest' => "$ENV{'HOME'}/OpenBSD",
+	     'sets'      => '^INSTALL|^bsd|tgz$',
+	     'timeout'   => 1,
+	     'protocol'  => 'http',
+	     'arch'      => `uname -m`,
+	     'countries' => 0
+	    );
+
+#read ~/.snapdl/snapdl.conf and override defaults conf
 open my $conf_file, '<', "$ENV{'HOME'}/.snapdl/snapdl.conf";
 while (<$conf_file>) {
 	chomp;
-	if(m!^([a-z_]+)=([A-Za-z,/~0-9\^\|\$\\]+)$!
-	   && ! $conf{$_}) {
-		$conf{$1} = $2;
+	my @conf_entries = keys %conf;
+	if(m!^([a-z_]+)=([A-Za-z,/~0-9\^\|\$\\]+)$!) {
+		my $entry = $1;
+		my $value = $2;
+		if (grep /$entry/,@conf_entries) {
+			$conf{$entry} = $value;
+		} else {
+			die "$_ is not a valid entry in $ENV{'HOME'}/.snapdl/snapdl.conf
+could be any of: @conf_entries";
+		}
+	} else {
+		die "Bad $ENV{'HOME'}/.snapdl/snapdl.conf format:\n $_\n";
 	}
 }
 
+#set booleans flags
 $conf{'interactive'}     = $opts{'i'};
 $conf{'pretend'}         = $opts{'p'};
 $conf{'new_mirrors_dat'} = $opts{'n'};
 $conf{'report'}          = $opts{'r'};
 $conf{'report_packages'} = $opts{'R'};
 
-die "Setting at least one country is mandatory, eg:
-snpadl -c France[,Germany...]" if (! $conf{'countries'} && ! $opts{'c'});
+#override default conf and snapdl.conf with command line options
+$conf{'countries'} = $opts{'c'} if $opts{'c'};
+$conf{'version'}   = $opts{'V'} if $opts{'V'};
+$conf{'command'}   = $opts{'C'} if $opts{'C'};
+$conf{'sets_dest'} = $opts{'s'} if $opts{'s'};
+$conf{'sets'}      = $opts{'S'} if $opts{'S'};
+$conf{'timeout'}   = $opts{'t'} if $opts{'t'};
+$conf{'protocol'}  = $opts{'P'} if $opts{'P'};
+$conf{'arch'}      = $opts{'a'} if $opts{'a'};
 
-$conf{'countries'} =  $opts{'c'} if ($opts{'c'});
+$conf{'sets_dest'} =~ s!^~!$ENV{'HOME'}!;
 
-if ($opts{'V'}) {
-	$conf{'version'} = $opts{'V'};
-} elsif (! defined $conf{'version'}) {
-	$conf{'version'} = "snapshots";
-}
+#check some value
+$, = ' ';
+my @archs = ( "alpha", "amd64", "armish", "hp300", "hppa", "i386", "landisk",
+	      "loongson", "macppc", "mvme68k", "mvme88k", "sgi", "socppc",
+	      "sparc", "sparc64", "vax", "zaurus" );
 
+my @versions = ("snapshots", "4.8", "4.7", "4.6");
+
+die "$conf{'arch'} is an illegal arch value, possible values: @archs\n"
+unless grep /$conf{'arch'}/, @archs;
+
+die "$conf{'version'} is an illegal version value, possible values: @versions\n"
+unless grep /$conf{'version'}/, @versions;
+
+#special package report handling
 if ($conf{'report_packages'}) {
 	$conf{'pretend'} = 1;
 	$conf{'report'}  = 1;
 	$conf{'version'} .= "/packages";
 	$conf{'timeout'} = 10;
 }
-
-print "$conf{'version'}\n";
-
-if ($opts{'C'}) {
-	$conf{'command'} = $opts{'C'};
-} elsif (! defined $conf{'command'}) {
-	$conf{'command'} = "ftp";
-}
-
-if ($opts{'s'}) {
-	$conf{'sets_dest'} = $opts{'s'};
-} elsif (! defined $conf{'sets_dest'}) {
-	$conf{'sets_dest'} = "$ENV{'HOME'}/OpenBSD";
-}
-
-if ($opts{'S'}) {
-	$conf{'sets'} = $opts{'S'};
-} elsif (! defined $conf{'sets'}) {
-	$conf{'sets'} = '^INSTALL|^bsd|tgz$';
-}
-
-if ($opts{'t'}) {
-	$conf{'timeout'} = $opts{'t'};
-} elsif (! defined $conf{'timeout'}) {
-	$conf{'timeout'} = 1;
-}
-
-if ($opts{'P'}) {
-	$conf{'protocol'} = $opts{'P'};
-} elsif (! defined $conf{'protocol'}) {
-        $conf{'protocol'} = "http";
-}
-
-if ($opts{'a'}) {
-	$conf{'arch'} = $opts{'a'};
-} elsif (! defined $conf{'arch'}) {
-	chomp($conf{'arch'} = `uname -m`);
-}
-
-$conf{'sets_dest'} =~ s!^~!$ENV{'HOME'}!;
 
 if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
 	my $mtime = (stat("$snapdl_dir/mirrors.dat"))[9];
@@ -145,7 +139,10 @@ while (<$mirrors_dat>) {
 
 close $mirrors_dat;
 
+my @valid_countries = sort keys %mirrors;
 for my $country (split ',', $conf{'countries'}) {
+	die "$country is not a legal country, valid entries are:
+@valid_countries\n" unless (grep /$country/, @valid_countries);
 	if (defined($mirrors{$country})) {
 		$mirrors{$country}->[0] = "checked";
 	}
@@ -259,7 +256,7 @@ my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %sync
 die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1
   && !$conf{'report'};
 
-my $server = $sorted_mirrors[0];
+my $server = $sorted_mirrors[0] || "No server available";
 
 
 &choose_mirror() if ($conf{'interactive'});
@@ -276,7 +273,7 @@ my @sets;
 
 &choose_sets() if ($conf{'interactive'});
 
-print "OK let's get the sets from $server!\n";
+print "OK let's get the sets from $server!\n" if ($conf{'pretend'});
 
 my @stripped_SHA256; #SHA256 stripped from undownloaded sets
 
