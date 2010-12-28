@@ -223,6 +223,8 @@ while (<$fh_new_sha256>) {
 	}
 	push @SHA256, $_ if ! $conf{'report_packages'};
 }
+close($fh_new_sha256);
+
 die "Empty or no SHA256 from http://ftp.OpenBSD.org/. Aborting.\n"
   if $line_count == 0;
 
@@ -265,8 +267,6 @@ for my $candidat_server (@mirrors) {
 		close $fh_mirrored_sha256;
         }
 }
-
-close($fh_new_sha256);
 
 print "Done\n";
 
