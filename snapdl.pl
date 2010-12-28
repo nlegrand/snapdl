@@ -135,8 +135,8 @@ if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 }
 
 #build the mirror list from mirrors.dat
-open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open $ENV{'HOME'}/.snapdl/mirrors.dat
-You can get a new one automaticaly running: snapdl -n";
+open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat"
+    or die "Can't open $ENV{'HOME'}/.snapdl/mirrors.dat: $!";
 
 my %mirrors;
 my $current_country;
