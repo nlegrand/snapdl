@@ -5,15 +5,120 @@
 .Nd downloads snapshots of OpenBSD -current
 .Sh SYNOPSIS
 .Nm snapdl
+.Bk -words
+.Op Fl ihnprRv
+.Op Fl a Ar arch
+.Op Fl c Ar countries
+.Op Fl C Ar command
+.Op Fl P Ar protocol
+.Op Fl s Ar sets_dest
+.Op Fl S Ar sets
+.Op Fl t Ar timeout
+.Op Fl V Ar version
 .Sh DESCRIPTION
 .Nm
 helps you to find mirrors where snapshots of -current are synchronised
 with the main mirror
 .Pa http://ftp.OpenBSD.org
-and to download the sets from the fastest one. It is interactive, the
-questions (get a new mirror list, which countries, path to download
-sets from, which plateform, which sets, which mirror) try to be as
-straightforwards as those from the OpenBSD install and upgrade scripts.
+and to download the sets from the fastest one.
+.Pp
+The options are as follows:
+.Bl -tag -width "-s sets_dest"
+.It Fl a Ar arch
+set arch, could be any of
+.Ar alpha
+,
+.Ar amd64
+,
+.Ar armish
+,
+.Ar hp300
+,
+.Ar hppa
+,
+.Ar i386
+,
+.Ar landisk
+,
+.Ar loongson
+,
+.Ar macppc
+,
+.Ar mvme68k
+,
+.Ar mvme88k
+,
+.Ar sgi
+,
+.Ar socppc
+,
+.Ar sparc
+,
+.Ar sparc64
+,
+.Ar vax
+,
+.Ar zaurus .
+
+.It Fl c Ar countries
+set a country or countries as the ones appearing on
+.Pa http://www.openbsd.org/ftp.html . Multiple values
+have to be separated by commas, eg:
+.Ar France,Germany .
+.It Fl C Ar command
+set the command used to download sets. Deflauts on
+.Nm ftp .
+It must have the same
+.Fl o
+option as
+.Nm ftp .
+.It Fl i
+interactive mode. The questions (get a new mirror list, which
+countries, path to download sets from, which plateform, which sets,
+which mirror) try to be as straightforwards as those from the OpenBSD
+install and upgrade scripts.
+.It Fl h
+print help and exit.
+.It Fl n
+download a new mirrors.dat in
+.Ar ~/snapdl/ .
+.It Fl p
+pretend to download. It will only show the command that would have
+been launched at the end.
+.It Fl P Ar protocol
+set the protocol, 
+.Ar http ,
+.Ar ftp
+or
+.Ar both.
+Defaults to
+.Ar http .
+.It Fl r
+print a status report of all tested mirrors (are they synchronised or
+not) on standard input.
+.It Fl R
+check packages repositories instead of sets. Doesn't download
+anything, just print status report.
+.It Fl s Ar sets_dest
+set the directory where to download sets. Automatically create the
+directory if it doesn't exist.
+.It Fl S Ar sets
+.Ar sets
+is a regxp of the sets to be downloaded. Defaults to
+.Ar ^INTALL|^bsd|tgz$
+which download all kernels, sets and INSTALL files.
+.It Fl t Ar timeout
+set the mirrors SHA256 download timeout in seconds. Defaults to 1.
+.It Fl v
+print snapdl version
+.It Fl V Ar release
+set which release to download, could be any of
+.Ar 4.6 ,
+.Ar 4.7 ,
+.Ar 4.8 ,
+.Ar snapshots .
+.Ar snapshots
+is the default.
 .Sh FILES
 .Bl -tag -width "~/.snapdl/mirrors.dat"
 .It ~/.snapdl/mirrors.dat
@@ -21,10 +126,8 @@ mirrors.dat
 .Nm
 download from
 .Pa http://www.openbsd.org/build/mirrors.dat
-.It ~/.snapdl/countries
-file containing one country name per line that will be automatically
-checked by
-.Nm
+.It ~/.snapdl/snapdl.conf
+configuration file
 .El
 .Sh SEE ALSO
 .Pa http://www.openbsd.org/faq/current.html
