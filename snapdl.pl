@@ -95,10 +95,11 @@ $conf{'arch'}      = $opts{'a'} if $opts{'a'};
 
 $conf{'sets_dest'} =~ s!^~!$ENV{'HOME'}!;
 
-#check some value
+#check some conf values
 die "You should set at least a country on the command line eg: -c France
 or on ~/.snapdl/snapdl.conf: countries=France. You can had multiple countries
-separated by commas, eg: France,Germany." unless $conf{'countries'};
+separated by commas, eg: France,Germany." unless $conf{'countries'}
+|| $conf{'interactive'};
 $, = ' ';
 my @archs = ( "alpha", "amd64", "armish", "hp300", "hppa", "i386", "landisk",
 	      "loongson", "macppc", "mvme68k", "mvme88k", "sgi", "socppc",
@@ -133,7 +134,9 @@ if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 	system($conf{'command'}, "-omirrors.dat","http://www.OpenBSD.org/build/mirrors.dat");
 }
 
-open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open $ENV{'HOME'}/.snapdl/mirrors.dat";
+#build the mirror list from mirrors.dat
+open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat" or die "can't open $ENV{'HOME'}/.snapdl/mirrors.dat
+You can get a new one automaticaly running: snapdl -n";
 
 my %mirrors;
 my $current_country;
@@ -147,26 +150,26 @@ while (<$mirrors_dat>) {
 			$mirrors{$current_country}->[0] = "not checked";
 		}
 	} elsif (/(?:^UF|^UH)\s+([a-zA-Z0-9\.:\/-]+)/
-	    && ! ($1 =~ m!ftp.OpenBSD.org/pub/OpenBSD/!)) {
+	    && $1 !~ m!ftp.OpenBSD.org/pub/OpenBSD/!) {
 		push @{ $mirrors{$current_country}->[1] }, $1;
 	}
 }
 
 close $mirrors_dat;
 
+#check mirrors from chosen countries
 my @valid_countries = sort keys %mirrors;
 for my $country (split ',', $conf{'countries'}) {
 	die "$country is not a legal country, valid entries are:
-@valid_countries\n" unless (grep /$country/, @valid_countries);
+@valid_countries\n" unless grep /$country/, @valid_countries || $conf{'interactive'};
 	if (defined($mirrors{$country})) {
 		$mirrors{$country}->[0] = "checked";
 	}
 }
 
-&choose_country() if ($conf{'interactive'});
+&choose_country() if $conf{'interactive'};
 
-my @mirrors ;
-
+#choose server protocol and build @mirrors, the list of candidate mirrors
 if ($conf{'interactive'}) {
 	printf "Protocols? ('ftp', 'http' or 'both') [http] ";
 	chomp($conf{'protocol'} = <STDIN>);
@@ -182,6 +185,7 @@ if ($conf{'protocol'} =~ /^$|http/) {
 	$proto_pattern = "^ftp|^http";
 }
 
+my @mirrors ;
 for (keys %mirrors) {
 	if ($mirrors{$_}->[0] eq "checked") {
 		for (@{ $mirrors{$_}->[1] }) {
@@ -192,20 +196,19 @@ for (keys %mirrors) {
 	}
 }
 
-&choose_sets_dest() if ($conf{'interactive'});
+#where to download sets
+&choose_sets_dest() if $conf{'interactive'};
 
 if (! -d $conf{'sets_dest'}) {
 	system("mkdir", "-p", $conf{'sets_dest'});
-	die "Can't mkdir -p $conf{'sets_dest'}" if ($? != 0);
+	die "Can't mkdir -p $conf{'sets_dest'}" if $? != 0;
 }
-
 chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 
+&choose_hw() if $conf{'interactive'};
 
-&choose_hw() if ($conf{'interactive'});
-
-my( $fh_new_sha256, $new_sha256) = tempfile;
-
+#Download and check SHA256
+my($fh_new_sha256, $new_sha256) = tempfile;
 print "Getting SHA256 from main mirror\n";
 `$conf{'command'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/$conf{'version'}/$conf{'arch'}/SHA256`;
 
@@ -214,13 +217,10 @@ my @SHA256;
 my $line_count = 0;
 while (<$fh_new_sha256>) {
 	$line_count += 1;
-	if (/^SHA256 \(base([0-9]{2,2}).tgz\) = [0-9a-zA-Z]+$/
-	    && ! $conf{'report'}) {
-		my $r = $1;
-	} elsif (! m!^SHA256 \([a-zA-Z0-9.\-_+@]+\) = [0-9a-zA-Z=+/]+.!s) {
+	if (! m!^SHA256 \([a-zA-Z0-9.\-_+@]+\) = [0-9a-zA-Z=+/]+.!s) {
 		die "$_: bad SHA256 format from http://ftp.OpenBSD.org/. Aborting.\n";
 	}
-	push @SHA256, $_ if ! $conf{'report'};
+	push @SHA256, $_ if ! $conf{'report_packages'};
 }
 die "Empty or no SHA256 from http://ftp.OpenBSD.org/. Aborting.\n"
   if $line_count == 0;
@@ -233,6 +233,8 @@ if (compare($new_sha256, "SHA256.orig") == 0
 
 copy($new_sha256, "SHA256.orig") if (! $conf{'pretend'});
 
+#Compare SHA256 with the one on each mirrors and put them in apropriate
+#%<status>_mirror hash table
 my %synced_mirror; # { 'http://mirror.com' => $time }
 my %unsynced_mirror;
 my %timeouted_mirror;
@@ -269,13 +271,13 @@ print "Done\n";
 
 my @sorted_mirrors = sort {$synced_mirror{$a} <=> $synced_mirror{$b}} keys %synced_mirror;
 die "No synchronised mirror found, try later..." if $#sorted_mirrors == -1
-  && !$conf{'report'};
+  && (!$conf{'report'} || $conf{'interactive'});
 
 my $server = $sorted_mirrors[0] || "No server available";
 
+&choose_mirror() if $conf{'interactive'};
 
-&choose_mirror() if ($conf{'interactive'});
-
+#choose sets to download
 my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
 
 for (@SHA256) {
@@ -284,14 +286,13 @@ for (@SHA256) {
         $sets{$set} = $status;
 }
 
-my @sets;
+&choose_sets() if $conf{'interactive'};
 
-&choose_sets() if ($conf{'interactive'});
-
-print "OK let's get the sets from $server!\n" if ($conf{'pretend'});
+print "OK let's get the sets from $server!\n" unless $conf{'pretend'};
 
 my @stripped_SHA256; #SHA256 stripped from undownloaded sets
 
+#Download everything, or show commands that would have been used
 if ($conf{'pretend'} && ! $conf{'report_packages'}) {
         print "Pretending:\n";
 }
@@ -308,6 +309,7 @@ for my $set (sort keys %sets) {
 	}
 }
 
+#And finally checksum the downloaded packages
 if (! $conf{'pretend'}) {
         open my $fh_SHA256, '>', 'SHA256' or die $!;
         print $fh_SHA256 @stripped_SHA256;
@@ -328,12 +330,17 @@ if (! $conf{'pretend'}) {
         print $index_txt $str_index_txt;
 }
 
-&print_report() if ($conf{'report'});
+&print_report() if $conf{'report'};
 
 sub print_report {
 	print "\n\n";
-	print "Reporting synchronization of sets repositories:\n";
-	print "===============================================\n\n";
+	if (! $conf{'report_packages'}) {
+		print "Reporting synchronization of sets repositories:\n";
+		print "===============================================\n\n";
+	} else {
+		print "Reporting synchronization of packages repositories:\n";
+		print "===================================================\n\n";
+	}
 	print "Synced mirrors:\n";
 	if ($#sorted_mirrors == -1) {
 		print "None\n";
@@ -384,7 +391,7 @@ sub format_check { # format_check(\@list)
 
 sub choose_country
 {
-	while (1) {
+	CHOOSE: while (1) {
 		print "Which countries you want to download from?:\n";
 		my @countries;
 		for (sort keys %mirrors) {
@@ -397,7 +404,13 @@ sub choose_country
 		my $operation;
 		my $pattern;
 		if ($line eq "done" || $line eq "") {
-			last;
+			for (keys %mirrors) {
+				if ($mirrors{$_}->[0] eq "checked") {
+					last CHOOSE;
+				}
+			}
+			print "\nYou should choose at least one country\n\n";
+			next;
 		} else {
 			if ($line =~ /(\+|-)(.+)/) {
 				$operation = $1;
@@ -406,7 +419,7 @@ sub choose_country
 				print "+re add countries with pattern re\n-re remove countries with pattern re\n";
 				next;
 			}
-		}		
+		}
                 for my $country (sort keys %mirrors) {
                         if ($country =~ /$pattern/
                             && $operation eq '-') {
@@ -423,7 +436,6 @@ sub choose_country
 sub choose_sets_dest
 {
 	while(1) {
-		$conf{'sets_dest'} = "$ENV{'HOME'}/OpenBSD";
 		printf "Path to download sets? (or 'pretend' ) [$conf{'sets_dest'}] ";
 		chomp(my $line = <STDIN>);
 		if ($line eq "pretend") {
@@ -444,7 +456,6 @@ sub choose_sets_dest
 sub choose_hw
 {
 	while (1) {
-		chomp($conf{'arch'} = `uname -m`);
 		printf "Arch? (or 'list') [$conf{'arch'}] ";
 		chomp(my $line = <STDIN>);
 		if ($line eq 'list') {
@@ -495,7 +506,7 @@ sub choose_mirror {
 sub choose_sets
 {
 	while (1) {
-		@sets = ();
+		my @sets;
 		print "Sets available:\n";
 		for (sort keys %sets) {
 			my $box = ($sets{$_} eq "checked") ? "[x]" : "[ ]";
