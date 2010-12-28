@@ -118,7 +118,7 @@ if ($conf{'report_packages'}) {
 	$conf{'pretend'} = 1;
 	$conf{'report'}  = 1;
 	$conf{'version'} .= "/packages";
-	$conf{'timeout'} = 10;
+	$conf{'timeout'} = 10 if $conf{'timeout'} == 1;
 }
 
 if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
