@@ -160,8 +160,8 @@ close $mirrors_dat;
 #check mirrors from chosen countries
 my @valid_countries = sort keys %mirrors;
 for my $country (split ',', $conf{'countries'}) {
-	die "$country is not a legal country, valid entries are:
-@valid_countries\n" unless grep /$country/, @valid_countries || $conf{'interactive'};
+	die "$country is not a legal country value, valid entries are:
+@valid_countries\n" unless grep(/$country/, @valid_countries) || $conf{'interactive'};
 	if (defined($mirrors{$country})) {
 		$mirrors{$country}->[0] = "checked";
 	}
