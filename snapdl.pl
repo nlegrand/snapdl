@@ -127,7 +127,7 @@ if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
 	print "You got your mirror list since $mod_date\n";
 	print "Do you want a new one? [no] ";
 	
-	$conf{'new_mirrors_dat'} = <STDIN> =~ /y|yes/i;
+	$conf{'new_mirrors_dat'} = <STDIN> =~ /^y|^yes/i;
 } 
 if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 	chdir($snapdl_dir);
@@ -178,9 +178,9 @@ if ($conf{'interactive'}) {
 
 my $proto_pattern;
 
-if ($conf{'protocol'} =~ /^$|http/) {
+if ($conf{'protocol'} eq "http") {
 	$proto_pattern = "^http";
-} elsif ($conf{'protocol'} =~ /ftp/) {
+} elsif ($conf{'protocol'} eq "ftp") {
 	$proto_pattern = "^ftp";
 } else {
 	$proto_pattern = "^ftp|^http";
@@ -333,7 +333,8 @@ if (! $conf{'pretend'}) {
 
 &print_report() if $conf{'report'};
 
-sub print_report {
+sub print_report
+{
 	print "\n\n";
 	if (! $conf{'report_packages'}) {
 		print "Reporting synchronization of sets repositories:\n";
@@ -413,7 +414,7 @@ sub choose_country
 			print "\nYou should choose at least one country\n\n";
 			next;
 		} else {
-			if ($line =~ /(\+|-)(.+)/) {
+			if ($line =~ /^(\+|-)(.+)$/) {
 				$operation = $1;
 				$pattern = $2;
 			} else {
@@ -481,7 +482,8 @@ sub choose_hw
 	}
 }
 
-sub choose_mirror {
+sub choose_mirror
+{
 	while (1) {
 		print "Mirror? (or 'list') [$sorted_mirrors[0]] ";
 		chomp(my $line = <STDIN>);
@@ -521,7 +523,7 @@ sub choose_sets
 		if ($line eq "done" or $line eq "") {
 			last;
 		} else {
-			if ($line =~ /(\+|-)(.+)/) {
+			if ($line =~ /^(\+|-)(.+)$/) {
 				$operation = $1;
 				$pattern = $2;
 			} else {
