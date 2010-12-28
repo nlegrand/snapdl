@@ -7,51 +7,57 @@ where the snapshots are synchronised with the main mirror
 the fastest. It may seem silly, but it's really quite useful to spot
 fast mirrors and to skip those not synchronised.
 
-Installation
-============
-
-snapdl is packaged in the OpenBSD ports, so you just have to type:
-
-<code>
-$ sudo pkg_add -i snapdl
-</code>
-
-to install it on a properly configured OpenBSD system. Read the
-[doc](http://www.openbsd.org/faq/faq15.html#Easy) for more
-information.
-
-Or you can use it by cloning it from Github:
-
-<code>
-$ git clone git://github.com/nlegrand/snapdl.git
-</code>
+It aims to stay bare with only perl core modules as dependencies: I
+want to be able to fastly copy/past it on any machine and launch it.
 
 Usage
 =====
 
-Type:
+For the first time, launching the interactive mode is the most
+straightforward way to use snapdl.
 
 <code>
-$ snapdl
+$ git clone git://github.com/nlegrand/snapdl.git
+$ perl snapdl/snpadl.pl -i
 </code>
 
-or
+Doc
+===
 
 <code>
-$ perl snapdl/snpadl.pl
+$ mandoc snapdl/snapdl.1 |less
 </code>
 
-if you cloned it from Github and answer questions.
+New features in version 1.3.0-alpha
+===================================
+
+* Be non interactive by default.
+
+* Set conf from <code>~/snapdl/snapdl.conf</code> or command line
+  options.
+
+* Report all tested mirror as synced, unsynced or timouted with
+  <code>-r</code>.
+
+* Report packages repository instead of sets with <code>-R</code>.
+
+* You can change the http/ftp client as long as it has the same
+  <code>-o</code> option as OpenBSD ftp(1). So it's now possible to
+  use snapdl on Linux with curl : <code>snapdl -C curl</code>.
+
+* The checksum at the end is now launched with Digest::SHA, so it
+  works on Linux, Mac OS X or FreeBSD as on OpenBSD.
 
 Bugs
 ====
 
-Oups, I wrote it mainly for OpenBSD, it rely deeply on *BSD ftp(1) and
-and won't work for Linux. It makes a final check with OpenBSD cksum(1)
-wich work the same on NetBSD, but not on Mac OS X or FreeBSD. So the
-checksum will fail on those two systems.
+If you find some don't hesitate to send me a mail at
+[nlegrand@ethelred.fr](mailto:nlegrand@ethelred.fr), it'll be even
+better with a patch or a git repository from where I can pull :).
 
 TODO
 =====
 
-* add a snapdl.conf option checker as the archs are checked.
+* clean, debug and document.
+
+* make interactive questions for version, comment, timeout.
