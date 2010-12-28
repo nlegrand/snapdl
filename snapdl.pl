@@ -282,7 +282,8 @@ my $server = $sorted_mirrors[0] || "No server available";
 my %sets; # {$set => $status} ; $set = "bsd" ; $status = "checked"
 
 for (@SHA256) {
-        my $set = (/\((.*)\)/) ? $1 : die "Weird SHA256\n";
+        /\((.+)\)/; 
+	my $set = $1;
         my $status = ($set =~ /$conf{'sets'}/) ? "checked" : "not checked";
         $sets{$set} = $status;
 }
