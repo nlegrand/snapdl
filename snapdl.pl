@@ -127,7 +127,7 @@ if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
 	print "You got your mirror list since $mod_date\n";
 	print "Do you want a new one? [no] ";
 	
-	$conf{'new_mirrors_dat'} = <STDIN> =~ /^y|^yes/i;
+	$conf{'new_mirrors_dat'} = <STDIN> =~ /^y/i;
 } 
 if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 	chdir($snapdl_dir);
