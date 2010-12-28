@@ -29,8 +29,8 @@ getopts('vhipnrRc:s:a:S:P:C:t:V:', \%opts);
 
 if ($opts{'h'} or $opts{'v'}) {
 	print "snapdl 1.3.0-alpha (c) Nicolas P. M. Legrand 2010
-usage: snapdl [-vhipnrR] [-c countries -V version -C command -s sets_dest
-       -S sets -t timeout -P protocol -a arch]
+usage: snapdl [-ihnprRv]  [-a arch] [-c countries] [-C command] [-P protocol]
+       [-s sets_dest] [-S sets] [-t timeout] [-V version]
 ";
 	exit 1;
 }
