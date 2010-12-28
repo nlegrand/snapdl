@@ -327,9 +327,7 @@ if (! $conf{'pretend'}) {
 			print "(SHA256) $1: FAILED\n";
 		}
 	}
-        my $str_index_txt = `ls -l`;
-        open my $index_txt, '>', 'index.txt' or die $!;
-        print $index_txt $str_index_txt;
+        `ls -l >index.txt`;
 }
 
 &print_report() if $conf{'report'};
