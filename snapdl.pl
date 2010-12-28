@@ -131,7 +131,8 @@ if (-e "$snapdl_dir/mirrors.dat" && $conf{'interactive'}) {
 } 
 if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 	chdir($snapdl_dir);
-	system($conf{'command'}, "-omirrors.dat","http://www.OpenBSD.org/build/mirrors.dat");
+	die "Can't get mirrors.dat\n"
+	    if (system($conf{'command'}, "-omirrors.dat","http://www.OpenBSD.org/build/mirrors.dat") != 0);
 }
 
 #build the mirror list from mirrors.dat
