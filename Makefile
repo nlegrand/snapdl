@@ -1,4 +1,4 @@
-VERSION=1.2.3
+VERSION=1.3.0-alpha
 INSTALL_PROGRAM_DIR=/usr/local/bin
 INSTALL=install -c -o root -g bin -m 555
 
