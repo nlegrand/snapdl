@@ -48,8 +48,9 @@ Bugs
 ====
 
 If you find some don't hesitate to send me a mail at
-[nlegrand@ethelred.fr](mailto:nlegrand@ethelred.fr), it'll be even
-better with a patch or a git repository from where I can pull :).
+[nlegrand@ethelred.fr](mailto:nlegrand@ethelred.fr), or comment on
+github. It'll be even better with a patch or a git repository from
+where I can pull :).
 
 TODO
 =====
