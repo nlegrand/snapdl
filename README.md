@@ -16,17 +16,13 @@ Usage
 For the first time, launching the interactive mode is the most
 straightforward way to use snapdl.
 
-<code>
-$ git clone git://github.com/nlegrand/snapdl.git
-$ perl snapdl/snpadl.pl -i
-</code>
+    $ git clone git://github.com/nlegrand/snapdl.git
+    $ perl snapdl/snpadl.pl -i
 
 Doc
 ===
 
-<code>
-$ mandoc snapdl/snapdl.1 |less
-</code>
+    $ mandoc snapdl/snapdl.1 |less
 
 New features in version 1.3.0-alpha
 ===================================
