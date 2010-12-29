@@ -225,7 +225,6 @@ chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 my($fh_new_sha256, $new_sha256) = tempfile;
 print "Getting SHA256 from main mirror\n";
 `$conf{'command'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/$conf{'version'}/$conf{'arch'}/SHA256`;
-print "$conf{'command'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/$conf{'version'}/$conf{'arch'}/SHA256";
 
 my @SHA256;
 
@@ -427,8 +426,8 @@ sub choose_country
 			print "\nYou should choose at least one country\n\n";
 			next;
 		} else {
-			if ($line =~ /^(\+|-)(.+)$/) {
-				$operation = $1;
+			if ($line =~ /^(\+|-)?(.+)$/) {
+				$operation = $1 || "+";
 				$pattern = $2;
 			} else {
 				print "+re add countries with pattern re\n-re remove countries with pattern re\n";
@@ -536,8 +535,8 @@ sub choose_sets
 		if ($line eq "done" or $line eq "") {
 			last;
 		} else {
-			if ($line =~ /^(\+|-)(.+)$/) {
-				$operation = $1;
+			if ($line =~ /^(\+|-)?(.+)$/) {
+				$operation = $1 || "+";
 				$pattern = $2;
 			} else {
 				print "+re add sets with pattern re\n-re remove sets with pattern re\n";
