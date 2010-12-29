@@ -55,22 +55,10 @@ my %conf = ( 'version'   => 'snapshots',
 
 chomp($conf{'arch'});
 
-#read deprecated ~/.snapdl/countries
-if (-e "$snapdl_dir/countries") {
-	open my $fh_countries, '<', "$ENV{'HOME'}/.snapdl/countries" or die "can't open $ENV{'HOME'}/.snapdl/countries";
-	while (my $country = <$fh_countries>) {
-		chomp($country);
-		$conf{'countries'} .= ($conf{'countries'}) ? ",$country" : $country;
-	}
-	close $fh_countries;
-	print "\n$snapdl_dir/countries is deprecated, you should run:
-rm $snapdl_dir/countries
-echo countries=$conf{'countries'} >> $snapdl_dir/.snapdl.conf\n\n";
-}
-
 #read ~/.snapdl/snapdl.conf and override defaults conf
 if (-e "$ENV{'HOME'}/.snapdl/snapdl.conf") {
-	open my $conf_file, '<', "$ENV{'HOME'}/.snapdl/snapdl.conf";
+	open my $conf_file, '<', "$ENV{'HOME'}/.snapdl/snapdl.conf"
+	or die "$ENV{'HOME'}/.snapdl/countries: $!";
 	while (<$conf_file>) {
 		chomp;
 		my @conf_entries = keys %conf;
@@ -87,7 +75,28 @@ could be any of: @conf_entries";
 			die "Bad $ENV{'HOME'}/.snapdl/snapdl.conf format:\n $_\n";
 		}
 	}
+	close $conf_file;
 }
+
+#automaticaly migrate old ~/.snapdl/countries
+if (-e "$snapdl_dir/countries") {
+	unless ($conf{'countries'}) {
+		open my $fh_countries, '<', "$ENV{'HOME'}/.snapdl/countries"
+		or die "$ENV{'HOME'}/.snapdl/countries: $!";
+		while (my $country = <$fh_countries>) {
+			chomp($country);
+			$conf{'countries'} .= ($conf{'countries'}) ? ",$country" : $country;
+		}
+		open my $conf_file, '>>', "$ENV{'HOME'}/.snapdl/snapdl.conf"
+		or die "$ENV{'HOME'}/.snapdl/snapdl.conf: $!";
+		print $conf_file "countries=$conf{'countries'}\n";
+		close $conf_file;
+		close $fh_countries;
+		unlink "$snapdl_dir/countries"
+		or die "unlink $snapdl_dir/countries: $!";
+	}
+}
+
 
 #set booleans flags
 $conf{'interactive'}     = $opts{'i'};
