@@ -142,6 +142,10 @@ if ($conf{'report_packages'}) {
 	$conf{'pretend'} = 1;
 	$conf{'report'}  = 1;
 	$conf{'version'} .= "/packages";
+	$conf{'arch'} = 'powerpc' if $conf{'arch'} eq 'macppc'
+	|| $conf{'arch'} eq 'socppc' ;
+	$conf{'arch'} = 'mips64' if $conf{'arch'} eq 'sgi'
+	|| $conf{'arch'} eq 'loongson';
 	$conf{'timeout'} = 10 if $conf{'timeout'} == 1;
 }
 
