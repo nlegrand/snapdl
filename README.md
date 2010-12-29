@@ -29,6 +29,8 @@ New features in version 1.3.0-alpha
 
 * Be non interactive by default.
 
+* Prevent from redownloading the same snapshots.
+
 * Set conf from <code>~/snapdl/snapdl.conf</code> or command line
   options.
 
