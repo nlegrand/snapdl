@@ -413,7 +413,7 @@ sub choose_country
 			push @countries, "$box $_";
 		}
 		format_check(\@countries);
-		printf "Countries names? (or 'done') [done] ";
+		printf "Countries names? (or '?' or 'done') [done] ";
 		chomp(my $line = <STDIN>);
 		my $operation;
 		my $pattern;
@@ -426,11 +426,12 @@ sub choose_country
 			print "\nYou should choose at least one country\n\n";
 			next;
 		} else {
-			if ($line =~ /^(\+|-)?(.+)$/) {
+			if ($line =~ /^(\+|-)?([a-zA-Z ]+)$/
+			    && $line ne "?") {
 				$operation = $1 || "+";
 				$pattern = $2;
 			} else {
-				print "+re add countries with pattern re\n-re remove countries with pattern re\n";
+				print "\n+re add countries with pattern re\n-re remove countries with pattern re\n\n";
 				next;
 			}
 		}
@@ -528,18 +529,19 @@ sub choose_sets
 			push @sets, "$box $_";
 		}
 		format_check(\@sets);
-		printf "Set names? (or 'done') [done] ";
+		printf "Set names? (or '?' or 'done') [done] ";
 		chomp(my $line = <STDIN>);
 		my $operation;
 		my $pattern;
 		if ($line eq "done" or $line eq "") {
 			last;
 		} else {
-			if ($line =~ /^(\+|-)?(.+)$/) {
+			if ($line =~ /^(\+|-)?(.+)$/
+			    && $line ne "?") {
 				$operation = $1 || "+";
 				$pattern = $2;
 			} else {
-				print "+re add sets with pattern re\n-re remove sets with pattern re\n";
+				print "\n+re add sets with pattern re\n-re remove sets with pattern re\n\n";
 				next;
 			}
 			for my $set (sort keys %sets) {
