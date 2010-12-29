@@ -50,10 +50,23 @@ my %conf = ( 'version'   => 'snapshots',
 	     'timeout'   => 1,
 	     'protocol'  => 'http',
 	     'arch'      => `uname -m`,
-	     'countries' => 0
+	     'countries' => ""
 	    );
 
 chomp($conf{'arch'});
+
+#read deprecated ~/.snapdl/countries
+if (-e "$snapdl_dir/countries") {
+	open my $fh_countries, '<', "$ENV{'HOME'}/.snapdl/countries" or die "can't open $ENV{'HOME'}/.snapdl/countries";
+	while (my $country = <$fh_countries>) {
+		chomp($country);
+		$conf{'countries'} .= ($conf{'countries'}) ? ",$country" : $country;
+	}
+	close $fh_countries;
+	print "\n$snapdl_dir/countries is deprecated, you should run:
+rm $snapdl_dir/countries
+echo countries=$conf{'countries'} >> $snapdl_dir/.snapdl.conf\n\n";
+}
 
 #read ~/.snapdl/snapdl.conf and override defaults conf
 if (-e "$ENV{'HOME'}/.snapdl/snapdl.conf") {
@@ -212,6 +225,7 @@ chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
 my($fh_new_sha256, $new_sha256) = tempfile;
 print "Getting SHA256 from main mirror\n";
 `$conf{'command'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/$conf{'version'}/$conf{'arch'}/SHA256`;
+print "$conf{'command'} -o$new_sha256 http://ftp.OpenBSD.org/pub/OpenBSD/$conf{'version'}/$conf{'arch'}/SHA256";
 
 my @SHA256;
 
