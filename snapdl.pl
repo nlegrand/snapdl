@@ -21,8 +21,10 @@ use Time::HiRes qw(gettimeofday tv_interval);
 use File::Temp qw(tempfile);
 use File::Compare;
 use File::Copy;
+use File::Path;
 use Getopt::Std;
 use Digest::SHA;
+use Cwd;
 
 my %opts;
 getopts('vhipnrRc:s:a:S:P:C:t:V:', \%opts);
@@ -39,7 +41,7 @@ usage: snapdl [-ihnprRv]  [-a arch] [-c countries] [-C command] [-P protocol]
 my $snapdl_dir = "$ENV{'HOME'}/.snapdl";
 if (! -d $snapdl_dir) {
 	printf "Creating $ENV{'HOME'}/.snapdl\n";
-	mkdir "$ENV{'HOME'}/.snapdl" or die "can't mkdir $ENV{'HOME'}/.snapdl";
+	mkpath "$ENV{'HOME'}/.snapdl" or die "$ENV{'HOME'}/.snapdl: $!";
 }
 
 #set default conf
@@ -159,7 +161,7 @@ if (! -e "$snapdl_dir/mirrors.dat" || $conf{'new_mirrors_dat'}) {
 
 #build the mirror list from mirrors.dat
 open my $mirrors_dat, '<', "$ENV{'HOME'}/.snapdl/mirrors.dat"
-    or die "Can't open $ENV{'HOME'}/.snapdl/mirrors.dat: $!";
+    or die "$ENV{'HOME'}/.snapdl/mirrors.dat: $!";
 
 my %mirrors;
 my $current_country;
@@ -223,10 +225,9 @@ for (keys %mirrors) {
 &choose_sets_dest() if $conf{'interactive'};
 
 if (! -d $conf{'sets_dest'}) {
-	system("mkdir", "-p", $conf{'sets_dest'});
-	die "Can't mkdir -p $conf{'sets_dest'}" if $? != 0;
+	mkpath $conf{'sets_dest'} or die "$conf{'sets_dest'}: $!";
 }
-chdir($conf{'sets_dest'}) or die "Can't change dir to $conf{'sets_dest'}";
+chdir($conf{'sets_dest'}) or die "$conf{'sets_dest'}: $!";
 
 &choose_hw() if $conf{'interactive'};
 
@@ -335,7 +336,8 @@ for my $set (sort keys %sets) {
 
 #And finally checksum the downloaded packages
 if (! $conf{'pretend'}) {
-        open my $fh_SHA256, '>', 'SHA256' or die $!;
+	my $cwd = cwd();
+        open my $fh_SHA256, '>', 'SHA256' or die "$cwd/SHA256: $!";
         print $fh_SHA256 @stripped_SHA256;
 	close $fh_SHA256;
         print "Checksum:\n";
@@ -469,8 +471,7 @@ sub choose_sets_dest
 			$conf{'sets_dest'} = $line;
 		} 
 		if (! -d $conf{'sets_dest'}) {
-			system("mkdir", "-p", $conf{'sets_dest'});
-			die "Can't mkdir -p $conf{'sets_dest'}" if ($? != 0);
+			mkpath $conf{'sets_dest'} or die "$conf{'sets_dest'}: $!";
 		}
 		(! -d $conf{'sets_dest'} ) ? next : last;
 	}
