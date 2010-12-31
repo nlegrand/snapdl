@@ -246,13 +246,13 @@ my $line_count = 0;
 while (<$fh_new_sha256>) {
 	$line_count += 1;
 	if (! m!^SHA256 \([a-zA-Z0-9.\-_+@]+\) = [0-9a-zA-Z=+/]+.!s) {
-		die "$_: bad SHA256 format from http://ftp.OpenBSD.org/. Aborting.\n";
+		die "$_: bad SHA256 format from http://ftp.OpenBSD.org/pub/OpenBSD/$conf{'version'}/$conf{'arch'}/. Aborting.\n";
 	}
 	push @SHA256, $_ if ! $conf{'report_packages'};
 }
 close($fh_new_sha256);
 
-die "Empty or no SHA256 from http://ftp.OpenBSD.org/. Aborting.\n"
+die "Empty or no SHA256 from http://ftp.OpenBSD.org/pub/OpenBSD/$conf{'version'}/$conf{'arch'}/. Aborting.\n"
   if $line_count == 0;
 
 
