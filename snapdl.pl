@@ -228,6 +228,8 @@ for (keys %mirrors) {
 #where to download sets
 &choose_sets_dest() if $conf{'interactive'};
 
+$conf{'sets_dest'} .= "/$conf{'version'}/$conf{'arch'}";
+
 if (! -d $conf{'sets_dest'}) {
 	mkpath $conf{'sets_dest'} or die "$conf{'sets_dest'}: $!";
 }
