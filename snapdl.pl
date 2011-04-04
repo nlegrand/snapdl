@@ -48,7 +48,7 @@ if (! -d $snapdl_dir) {
 my %conf = ( 'version'   => 'snapshots',
 	     'command'   => 'ftp',
 	     'sets_dest' => "$ENV{'HOME'}/OpenBSD",
-	     'sets'      => '^INSTALL|^bsd|tgz$',
+	     'sets'      => '^INSTALL|^bsd|tgz$|^cd[0-9]{2}\.iso$',
 	     'timeout'   => 1,
 	     'protocol'  => 'http',
 	     'arch'      => `uname -m`,
