@@ -129,7 +129,7 @@ my @archs = ( "alpha", "amd64", "armish", "hp300", "hppa", "i386", "landisk",
 	      "loongson", "macppc", "mvme68k", "mvme88k", "sgi", "socppc",
 	      "sparc", "sparc64", "vax", "zaurus" );
 
-my @versions = ("snapshots", "4.9", "4.8", "4.7", "4.6");
+my @versions = ("snapshots", "5.0", "4.9", "4.8", "4.7", "4.6");
 
 die "$conf{'arch'} is an illegal arch value, possible values: @archs\n"
 unless grep /$conf{'arch'}/, @archs;
